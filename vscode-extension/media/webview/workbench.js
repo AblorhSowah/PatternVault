@@ -7,9 +7,11 @@ import { generateView } from './views/generate.js';
 import { settingsView } from './views/settings.js';
 import { agentsView } from './views/agents.js';
 import { testingView } from './views/testing.js';
+import { chatView } from './views/chat.js';
 
 const SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', view: dashboardView },
+  { id: 'chat', label: 'Chat', view: (el, ctx) => chatView(el, ctx, { embedded: true }) },
   { id: 'learning', label: 'AI Learning Centre', view: learningView },
   { id: 'library', label: 'Pattern Library', view: libraryView },
   { id: 'generate', label: 'Code Generation', view: generateView },

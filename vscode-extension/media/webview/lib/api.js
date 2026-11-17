@@ -3,11 +3,13 @@ const vscode = acquireVsCodeApi();
 const pending = new Map();
 let seq = 0;
 const eventListeners = new Set();
+const prefillListeners = new Set();
+let pendingPrefill = null; // a prefill that arrived before the chat view had finished loading
 
 window.addEventListener('message', (ev) => {
   const m = ev.data;
   if (!m || typeof m !== 'object') return;
-  if (m.type === 'apiResult' || m.type === 'confirmResult' || m.type === 'saveResult' || m.type === 'commandResult') {
+  if (m.type === 'apiResult' || m.type === 'confirmResult' || m.type === 'saveResult' || m.type === 'commandResult' || m.type === 'copyResult' || m.type === 'openTextResult') {
     const p = pending.get(m.id);
     if (!p) return;
     pending.delete(m.id);
@@ -15,6 +17,9 @@ window.addEventListener('message', (ev) => {
     else p.resolve(m.type === 'apiResult' ? m.data : m);
   } else if (m.type === 'event') {
     for (const l of eventListeners) l(m.event);
+  } else if (m.type === 'prefill' && typeof m.text === 'string') {
+    if (prefillListeners.size) for (const l of prefillListeners) l(m.text);
+    else pendingPrefill = m.text;
   }
 });
 
@@ -39,6 +44,23 @@ export const host = {
   saveJson: (suggestedName, data) => call({ type: 'saveJson', suggestedName, data }),
   command: (command) => call({ type: 'command', command }),
 };
+
+export async function copyText(text) {
+  const r = await call({ type: 'copy', text });
+  if (!r.ok) throw new Error('copy failed');
+}
+
+export async function openText(text, language) {
+  const r = await call({ type: 'openText', text, language });
+  if (!r.ok) throw new Error('could not open an editor');
+}
+
+/** Text the extension wants placed in the chat input (e.g. "Ask about selection"). Replays one that arrived early. */
+export function onPrefill(fn) {
+  prefillListeners.add(fn);
+  if (pendingPrefill !== null) { const t = pendingPrefill; pendingPrefill = null; setTimeout(() => fn(t), 0); }
+  return () => prefillListeners.delete(fn);
+}
 
 export function onEvent(fn) {
   eventListeners.add(fn);

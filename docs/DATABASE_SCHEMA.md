@@ -1,6 +1,6 @@
 # Database schema
 
-25 tables (SQLite, managed by Alembic).
+27 tables (SQLite, managed by Alembic).
 
 ## `agent_definitions`
 
@@ -85,7 +85,7 @@ Indexes: `ix_approvals_task_id` (task_id)
 | prev_hash | VARCHAR(64) | no |  |
 | hash | VARCHAR(64) | no |  |
 
-Indexes: `ix_audit_logs_action` (action); `ix_audit_logs_ts` (ts)
+Indexes: `ix_audit_logs_ts` (ts); `ix_audit_logs_action` (action)
 
 ## `captured_responses`
 
@@ -104,6 +104,32 @@ Indexes: `ix_audit_logs_action` (action); `ix_audit_logs_ts` (ts)
 | created_at | DATETIME | no |  |
 
 Indexes: `ix_captured_responses_session_seq` (session_id, sequence)
+
+## `chat_conversations`
+
+| Column | Type | Null | Key |
+|---|---|---|---|
+| id | INTEGER | no | PK |
+| title | VARCHAR(200) | no |  |
+| project_id | INTEGER | yes | FK → projects.id |
+| created_at | DATETIME | no |  |
+| updated_at | DATETIME | no |  |
+
+Indexes: `ix_chat_conversations_project_id` (project_id)
+
+## `chat_messages`
+
+| Column | Type | Null | Key |
+|---|---|---|---|
+| id | INTEGER | no | PK |
+| conversation_id | INTEGER | no | FK → chat_conversations.id |
+| role | VARCHAR(16) | no |  |
+| content | TEXT | no |  |
+| sources | JSON | no |  |
+| meta | JSON | no |  |
+| created_at | DATETIME | no |  |
+
+Indexes: `ix_chat_messages_conversation_id_id` (conversation_id, id); `ix_chat_messages_conversation_id` (conversation_id)
 
 ## `code_implementations`
 
@@ -209,7 +235,7 @@ Indexes: `ix_dev_sessions_project_started` (project_id, started_at)
 | resolved | BOOLEAN | no |  |
 | created_at | DATETIME | no |  |
 
-Indexes: `ix_errors_project_id` (project_id); `ix_errors_signature` (signature)
+Indexes: `ix_errors_signature` (signature); `ix_errors_project_id` (project_id)
 
 ## `file_changes`
 
@@ -276,7 +302,7 @@ Indexes: `ix_file_snapshots_project_path` (project_id, path); `ix_file_snapshots
 | created_at | DATETIME | no |  |
 | updated_at | DATETIME | no |  |
 
-Indexes: `ix_knowledge_patterns_lang_fw` (language, framework); `ix_knowledge_patterns_status` (status); `ix_knowledge_patterns_fingerprint` (fingerprint); `ix_knowledge_patterns_category` (category); `ix_knowledge_patterns_verified_by_testing_session_id` (verified_by_testing_session_id)
+Indexes: `ix_knowledge_patterns_status` (status); `ix_knowledge_patterns_fingerprint` (fingerprint); `ix_knowledge_patterns_category` (category); `ix_knowledge_patterns_verified_by_testing_session_id` (verified_by_testing_session_id); `ix_knowledge_patterns_lang_fw` (language, framework)
 
 ## `pattern_relationships`
 
@@ -290,7 +316,7 @@ Indexes: `ix_knowledge_patterns_lang_fw` (language, framework); `ix_knowledge_pa
 | note | TEXT | no |  |
 | created_at | DATETIME | no |  |
 
-Indexes: `ix_pattern_relationships_source_id` (source_id); `ix_pattern_relationships_target_id` (target_id)
+Indexes: `ix_pattern_relationships_target_id` (target_id); `ix_pattern_relationships_source_id` (source_id)
 
 ## `pattern_versions`
 
@@ -411,7 +437,7 @@ Indexes: `ix_test_results_testing_session_id` (testing_session_id)
 | started_at | DATETIME | no |  |
 | finished_at | DATETIME | yes |  |
 
-Indexes: `ix_testing_sessions_task_id` (task_id); `ix_testing_sessions_project_started` (project_id, started_at)
+Indexes: `ix_testing_sessions_project_started` (project_id, started_at); `ix_testing_sessions_task_id` (task_id)
 
 ## `user_feedback`
 

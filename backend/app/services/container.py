@@ -10,6 +10,7 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.agents.registry import AgentRegistry
+from app.chat.service import ChatService
 from app.config import ConfigManager, Paths, RuntimeSettings
 from app.database import create_db_engine, make_session_factory, run_migrations
 from app.execution.commands import CommandExecutor
@@ -93,6 +94,7 @@ class Services:
         )
         self.modes = ModeController(lambda: self.config.config, self.audit, self.events)
         self.generator = CodeGenerator(self)
+        self.chat = ChatService(self)
         self.replayer = Replayer(self)
         self.approvals = ApprovalService(self.session_factory, self.audit, self.events)
         self.recovery = RecoveryManager(self.paths.recovery, self.session_factory, self.audit)

@@ -3,6 +3,7 @@
  * - activates; every command in package.json is registered and equals COMMAND_IDS
  * - auto-starts the real backend; status becomes running; dashboard reachable
  * - registerWorkspace registers the open folder with the backend
+ * - the chat view opens, and the chat answers through the extension's own authenticated client (no model → honest stored-pattern answer)
  * - SecretStorage round-trip works and the key never reaches the backend config
  * - stopBackend stops it; restart brings it back
  */
@@ -52,6 +53,24 @@ describe('PatternVault extension host', () => {
     const projects = await api.backend.client!.listProjects();
     const ws = process.env.PV_TEST_WORKSPACE!;
     assert.ok(projects.some((p) => fs.realpathSync(p.root_path) === fs.realpathSync(ws)), 'workspace not registered');
+  });
+
+  it('opens the chat view and the chat works through the extension client', async () => {
+    await vscode.commands.executeCommand('patternvault.openChat'); // resolves the side-bar webview view
+    const client = api.backend.client!;
+    const conv = (await client.request('POST', '/chat/conversations', {})) as { id: number };
+    const sent = (await client.request('POST', `/chat/conversations/${conv.id}/messages`, { message: 'How do we do jwt login?' })) as { turn_id: number };
+    let turn: { status: string; text: string; meta: { model_used?: boolean } } = { status: 'running', text: '', meta: {} };
+    await waitFor(async () => {
+      turn = (await client.request('GET', `/chat/turns/${sent.turn_id}`)) as typeof turn;
+      return turn.status !== 'running';
+    }, 30000, 'chat turn to finish');
+    assert.strictEqual(turn.status, 'done');
+    assert.strictEqual(turn.meta.model_used, false, 'no local model is configured in this test, so it must not pretend one replied');
+    assert.match(turn.text, /can't reach a language model/);
+    const stored = (await client.request('GET', `/chat/conversations/${conv.id}`)) as { messages: { role: string }[] };
+    assert.deepStrictEqual(stored.messages.map((m) => m.role), ['user', 'assistant']);
+    await client.request('DELETE', `/chat/conversations/${conv.id}`);
   });
 
   it('stores keys in SecretStorage only', async () => {

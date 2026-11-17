@@ -50,9 +50,11 @@ executed (non-skipped) relevant agent.
 
 ## Results of the final run (2026-11-17)
 
-`scripts/check.sh --host --package` → exit 0: pytest 584 passed (87.3 % coverage) · performance 5 · Playwright E2E 25 · Vitest 120 · extension host 5 ·
-clean-profile VSIX install 5. Linters/type-checkers: ruff, mypy (105 files), bandit, tsc, ESLint — clean. Layout: `tests/{unit,integration,security,regression,performance,e2e}`,
+`scripts/check.sh --host --package` → exit 0: pytest 601 passed (87.4 % coverage) · performance 5 · Playwright E2E 42 · Vitest 141 · extension host 6 ·
+clean-profile VSIX install 5. Linters/type-checkers: ruff, mypy (111 files), bandit, tsc, ESLint — clean. Layout: `tests/{unit,integration,security,regression,performance,e2e}`,
 `vscode-extension/test/{unit,integration,suite,packaged}`.
+
+Failures of the Playwright suite leave evidence (screenshot, page state, failed network requests) in `test-results/FAILED-*`; the harness's HTTP servers use a listen backlog of 128 (the default of 5 reset connections under bursts).
 
 Honest gaps: no test ran against a **real** LLM (`tests/e2e/test_live_ollama.py` is opt-in and skipped); the Ollama client and generation pipeline are verified with protocol doubles
 (`tests/helpers/fake_ollama.py`), which prove protocol handling and PatternVault's logic, not model quality.

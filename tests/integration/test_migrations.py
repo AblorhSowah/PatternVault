@@ -42,6 +42,8 @@ REQUIRED_TABLES = {
     "file_snapshots",
     "file_changes",
     "knowledge_patterns",
+    "chat_conversations",
+    "chat_messages",
     "pattern_versions",
     "pattern_relationships",
     "dependencies",

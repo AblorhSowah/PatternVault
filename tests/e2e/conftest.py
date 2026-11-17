@@ -6,6 +6,7 @@ backend (the host allow-list/confirmation logic is covered by Vitest). Confirmat
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import secrets
@@ -99,10 +100,17 @@ class _Quiet(SimpleHTTPRequestHandler):
         pass
 
 
+class _StaticServer(ThreadingHTTPServer):
+    # The default listen backlog (5) drops connections when Chromium fetches the webview's ES modules in a burst, which
+    # shows up as ERR_CONNECTION_RESET and a blank page. (60 parallel clients: 70 of 900 connections failed at 5, 0 at 128.)
+    request_queue_size = 128
+    daemon_threads = True
+
+
 @pytest.fixture(scope="session")
 def static_server() -> Iterator[str]:
     handler = partial(_Quiet, directory=str(MEDIA))
-    srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    srv = _StaticServer(("127.0.0.1", 0), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_port}"
     srv.shutdown()
@@ -123,10 +131,14 @@ class Workbench:
         self.confirms: list[str] = []
         self.saved: list[tuple[str, object]] = []
         self.commands: list[str] = []
+        self.copied: list[str] = []
+        self.opened: list[tuple[str, str | None]] = []
         self.auto_confirm = True
         page.expose_function("__pvHost", self._host)
         page.add_init_script(SHIM)
         self.errors: list[str] = []
+        self.failed_requests: list[str] = []
+        page.on("requestfailed", lambda r: self.failed_requests.append(f"{r.url} :: {r.failure}"))
         page.on("console", lambda m: self.errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: self.errors.append(f"pageerror: {e}"))
 
@@ -134,7 +146,12 @@ class Workbench:
         m = json.loads(raw)
         t = m["type"]
         if t == "api":
-            r = self.backend.call(m["method"], m["path"], m.get("body"), m.get("query"))
+            try:
+                r = self.backend.call(m["method"], m["path"], m.get("body"), m.get("query"))
+            except httpx.HTTPError:  # what the real extension host reports when the backend is not running
+                return json.dumps(
+                    {"type": "apiResult", "id": m["id"], "ok": False, "status": 503, "error": "backend is not running"}
+                )
             try:
                 data = r.json() if r.content else None
             except ValueError:
@@ -159,14 +176,20 @@ class Workbench:
         if t == "command":
             self.commands.append(m["command"])
             return json.dumps({"type": "commandResult", "id": m["id"], "ok": True})
+        if t == "copy":
+            self.copied.append(m["text"])
+            return json.dumps({"type": "copyResult", "id": m["id"], "ok": True})
+        if t == "openText":
+            self.opened.append((m["text"], m.get("language")))
+            return json.dumps({"type": "openTextResult", "id": m["id"], "ok": True})
         return None
 
-    def open(self) -> None:
+    def open(self, script: str = "workbench.js") -> None:
         html = (
             GOLDEN.read_text()
             .replace("{{CSP_SOURCE}}", self.base)
             .replace("{{NONCE}}", secrets.token_hex(8))
-            .replace("{{SCRIPT_URI}}", f"{self.base}/webview/workbench.js")
+            .replace("{{SCRIPT_URI}}", f"{self.base}/webview/{script}")
             .replace("{{STYLE_URI}}", f"{self.base}/webview/workbench.css")
         )
         # Serve through a route so the page has a real http origin (module imports need it).
@@ -175,6 +198,13 @@ class Workbench:
         )
         self.page.goto(f"{self.base}/index.html")
         self.page.wait_for_selector("#content")
+
+    def host_event(self, event: dict) -> None:
+        """Deliver a backend event to the page, as the extension host would after a WebSocket message."""
+        self.page.evaluate("(e) => window.postMessage({ type: 'event', event: e }, '*')", event)
+
+    def host_message(self, message: dict) -> None:
+        self.page.evaluate("(m) => window.postMessage(m, '*')", message)
 
     def nav(self, section: str) -> None:
         self.page.click(f'.nav-item[data-section="{section}"]')
@@ -198,10 +228,36 @@ def browser():
         b.close()
 
 
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    report = yield
+    setattr(item, f"rep_{report.when}", report)
+    return report
+
+
 @pytest.fixture()
-def wb(browser, backend, static_server) -> Iterator[Workbench]:
+def wb(request, browser, backend, static_server) -> Iterator[Workbench]:
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()
     w = Workbench(page, backend, static_server)
     yield w
+    rep = getattr(request.node, "rep_call", None)
+    if rep is not None and rep.failed:  # leave evidence: a failure here is otherwise just "timeout"
+        SHOTS.mkdir(exist_ok=True)
+        name = request.node.name
+        try:
+            state = page.evaluate(
+                "({ url: location.href, ready: document.readyState, body: document.body.innerText.slice(0, 600) })"
+            )
+        except Exception as exc:  # the page itself may be gone
+            state = f"page unavailable: {exc}"
+        (SHOTS / f"FAILED-{name}.txt").write_text(
+            json.dumps(
+                {"state": state, "console_errors": w.errors, "failed_requests": w.failed_requests},
+                indent=2,
+                default=str,
+            )
+        )
+        with contextlib.suppress(Exception):
+            page.screenshot(path=str(SHOTS / f"FAILED-{name}.png"))
     ctx.close()

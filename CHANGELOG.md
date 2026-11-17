@@ -4,6 +4,14 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Added — Chat
+- A chat in the VS Code side bar (and a Workbench section): knowledge-grounded answers streamed from the local model, clickable source citations, local conversation history,
+  slash commands (`/search /context /generate /task /recreate /status /new /help`), code blocks with Copy / Open in editor, and *Ask About Selection* from the editor.
+- Backend: `app.chat`, `/chat/*` routes, `chat_conversations` / `chat_messages` tables (migration 0004), `chat.turn.*` events with delta offsets, model-free fallback answer.
+- Security: messages and replies redacted before storage, metadata-only audit entries, text-only rendering, no write path from chat, credential-looking files refused for *Ask About Selection*.
+- Commands: *PatternVault: Open Chat*, *PatternVault: Ask About Selection*.
+- Fixed: input borders were not drawn (stray `)` in the stylesheet); the E2E host shim now reports a stopped backend as 503 like the real host.
+
 ### Added — Phases 3–7
 - Retrieval: hashing + Ollama embedders, SQLite vector store (Chroma optional/untested), hybrid FTS5+vector search with trust/version ranking,
   context analysis, knowledge quality analysis, export/import.

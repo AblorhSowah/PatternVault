@@ -16,6 +16,11 @@ from typing import Any
 Responder = Callable[[str, list[dict[str, str]], dict[str, Any]], str]
 
 
+class _Server(ThreadingHTTPServer):
+    request_queue_size = 128  # the default backlog of 5 resets connections under bursts
+    daemon_threads = True
+
+
 class FakeOllama:
     def __init__(self, models: list[str] | None = None, responder: Responder | None = None) -> None:
         self.models = models if models is not None else ["qwen2.5-coder:7b"]
@@ -146,7 +151,7 @@ class FakeOllama:
                     return
                 self._send(404, {"error": "not found"})
 
-        self._srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self._srv = _Server(("127.0.0.1", 0), H)
         self.url = f"http://127.0.0.1:{self._srv.server_port}"
         self._t = threading.Thread(target=self._srv.serve_forever, daemon=True)
 
@@ -188,7 +193,7 @@ class FakeCloud:
                 self.end_headers()
                 self.wfile.write(data)
 
-        self._srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self._srv = _Server(("127.0.0.1", 0), H)
         self.url = f"http://127.0.0.1:{self._srv.server_port}/v1"
         self._t = threading.Thread(target=self._srv.serve_forever, daemon=True)
 

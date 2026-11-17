@@ -189,3 +189,20 @@ class BackupRestore(BaseModel):
     name: str = Field(max_length=200)
     passphrase: str | None = Field(default=None, max_length=256)
     confirm: bool = False
+
+
+class ConversationCreate(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+    project_id: int | None = None
+
+
+class ConversationUpdate(BaseModel):
+    project_id: int | None = None
+
+
+class ChatMessageIn(BaseModel):
+    message: str = Field(min_length=1, max_length=8000)
+    backend: str = Field(default="auto", pattern="^(auto|local|cloud)$")
+    model: str | None = Field(default=None, max_length=200)
+    use_knowledge: bool = True
+    top_k: int = Field(default=4, ge=0, le=8)

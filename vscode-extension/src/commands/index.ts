@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import type { BackendManager } from '../services/backendManager';
 import { ProviderKeyStore } from '../services/secrets';
 import type { Mode, PermissionLevel } from '../services/backendClient';
+import { buildAskPrompt, isSensitivePath } from '../services/askPrompt';
 import { modeLabel } from '../services/statusModel';
 import type { CaptureUi } from '../views/captureUi';
+import type { ChatViewProvider } from '../views/chatView';
 import type { WorkbenchPanel } from '../views/workbenchPanel';
 
 export interface CommandDeps {
@@ -13,6 +15,7 @@ export interface CommandDeps {
   refresh: () => Promise<void>;
   capture: CaptureUi;
   workbench: WorkbenchPanel;
+  chat: ChatViewProvider;
 }
 
 function fail(output: vscode.OutputChannel, what: string, err: unknown): void {
@@ -39,10 +42,12 @@ export const COMMAND_IDS = [
   'patternvault.analyzeProject',
   'patternvault.openWorkbench',
   'patternvault.setupBackend',
+  'patternvault.openChat',
+  'patternvault.askAboutSelection',
 ] as const;
 
 export function registerCommands(deps: CommandDeps): vscode.Disposable[] {
-  const { context, backend, output, refresh, capture, workbench } = deps;
+  const { context, backend, output, refresh, capture, workbench, chat } = deps;
   const keys = new ProviderKeyStore(context.secrets);
   const reg = (id: (typeof COMMAND_IDS)[number], fn: () => Promise<void> | void) =>
     vscode.commands.registerCommand(id, async () => {
@@ -121,6 +126,25 @@ export function registerCommands(deps: CommandDeps): vscode.Disposable[] {
       }
       await client.patchConfig({ permission_level: chosen.level });
       await refresh();
+    }),
+    reg('patternvault.openChat', () => chat.focus()),
+    reg('patternvault.askAboutSelection', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor || editor.selection.isEmpty) throw new Error('select some code in an editor first');
+      const relativePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+      if (isSensitivePath(relativePath)) {
+        throw new Error(`"${relativePath}" looks like it holds credentials, so it is not sent to the chat`);
+      }
+      const sel = editor.selection;
+      await chat.prefill(
+        buildAskPrompt({
+          relativePath,
+          languageId: editor.document.languageId,
+          startLine: sel.start.line + 1,
+          endLine: sel.end.line + 1,
+          text: editor.document.getText(sel),
+        }),
+      );
     }),
     reg('patternvault.registerWorkspace', async () => {
       const client = needClient();

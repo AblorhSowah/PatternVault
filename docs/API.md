@@ -56,6 +56,52 @@ Delete Backup
 Parameters: `name` (path, required), `confirm` (query)
 Responses: `204`, `422`
 
+## `DELETE /api/v1/chat/conversations`
+Delete All Conversations
+Responses: `200`
+
+## `GET /api/v1/chat/conversations`
+List Conversations
+Parameters: `limit` (query)
+Responses: `200`, `422`
+
+## `POST /api/v1/chat/conversations`
+Create Conversation
+Request body: `ConversationCreate`
+Responses: `201`, `422`
+
+## `DELETE /api/v1/chat/conversations/{conversation_id}`
+Delete Conversation
+Parameters: `conversation_id` (path, required)
+Responses: `200`, `422`
+
+## `GET /api/v1/chat/conversations/{conversation_id}`
+Get Conversation
+Parameters: `conversation_id` (path, required)
+Responses: `200`, `422`
+
+## `PATCH /api/v1/chat/conversations/{conversation_id}`
+Update Conversation
+Parameters: `conversation_id` (path, required)
+Request body: `ConversationUpdate`
+Responses: `200`, `422`
+
+## `POST /api/v1/chat/conversations/{conversation_id}/messages`
+Send Message
+Parameters: `conversation_id` (path, required), `x-pv-cloud-key` (header)
+Request body: `ChatMessageIn`
+Responses: `202`, `422`
+
+## `GET /api/v1/chat/turns/{turn_id}`
+Get Turn
+Parameters: `turn_id` (path, required)
+Responses: `200`, `422`
+
+## `POST /api/v1/chat/turns/{turn_id}/cancel`
+Cancel Turn
+Parameters: `turn_id` (path, required)
+Responses: `200`, `422`
+
 ## `POST /api/v1/compare`
 Compare
 Request body: `CompareIn`

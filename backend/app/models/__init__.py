@@ -10,6 +10,7 @@ from app.models.capture import (
     Project,
     UserPrompt,
 )
+from app.models.chat import ChatConversation, ChatMessage
 from app.models.execution import (
     AgentDefinition,
     AgentExecution,
@@ -41,6 +42,8 @@ __all__ = [
     "AuditLog",
     "Base",
     "CapturedResponse",
+    "ChatConversation",
+    "ChatMessage",
     "CodeImplementation",
     "DebuggingSolution",
     "Dependency",

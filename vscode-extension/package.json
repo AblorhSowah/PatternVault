@@ -103,6 +103,17 @@
         "command": "patternvault.setupBackend",
         "title": "Set Up Backend (create Python environment)",
         "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.openChat",
+        "title": "Open Chat",
+        "category": "PatternVault",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "patternvault.askAboutSelection",
+        "title": "Ask About Selection",
+        "category": "PatternVault"
       }
     ],
     "viewsContainers": {
@@ -116,6 +127,11 @@
     },
     "views": {
       "patternvault": [
+        {
+          "id": "patternvault.chat",
+          "name": "Chat",
+          "type": "webview"
+        },
         {
           "id": "patternvault.status",
           "name": "Status"
@@ -155,6 +171,28 @@
           "scope": "machine"
         }
       }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "patternvault.askAboutSelection",
+          "when": "editorHasSelection",
+          "group": "9_patternvault@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "patternvault.askAboutSelection",
+          "when": "editorHasSelection"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "patternvault.openWorkbench",
+          "when": "view == patternvault.chat",
+          "group": "navigation"
+        }
+      ]
     }
   },
   "scripts": {

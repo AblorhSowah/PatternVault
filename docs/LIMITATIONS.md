@@ -8,6 +8,13 @@
 * ChromaDB as the vector backend is implemented behind the interface but was **not exercised** (optional extra not installed).
 * Tested on macOS/arm64, Python 3.13, VS Code 1.129 only. Windows/Linux, Python 3.11/3.12 are untested (paths and process-group handling are POSIX-first).
 
+**Chat**
+* Like generation, chat answers have only been exercised against Ollama *protocol doubles*; answer quality, citation accuracy and how small models handle the prompt are unmeasured.
+* Cloud chat needs a per-request key header that the extension UI does not send (the same is true of cloud generation), so it is reachable through the API only.
+* Slash-command results (search cards, task panels) live in the open view, not in the saved history; an answer being written is lost if the backend restarts (what was already saved is kept).
+* Answers render a small Markdown subset (paragraphs, lists, headings, code, bold, citations); tables, images and links are shown as plain text on purpose.
+* Conversations are kept until you delete them; there is no automatic retention limit.
+
 **Provider capture**
 * GitHub Copilot and Cursor expose no supported way to read chats; they are workspace-observation/manual-capture only. Claude Code capture depends on a
   transcript format that is not a public contract.

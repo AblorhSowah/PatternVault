@@ -36,6 +36,10 @@ function EXTRA_RULES(): [string, string][] {
     ['GET', '/storage'], ['POST', '/storage/gc'], ['GET', '/backups'], ['POST', '/backups'], ['POST', '/backups/verify'], ['POST', '/backups/restore'], ['DELETE', '/backups/[\\w.-]+'], ['GET', '/audit'], ['GET', '/knowledge/stats'], ['POST', '/generate'], ['POST', '/tasks'], ['POST', '/testing/run'], ['POST', `/approvals/${ID}/decide`], ['POST', `/recovery-points/${ID}/restore`], ['GET', '/tasks/' + ID + '/report'], ['POST', '/replay/plan'], ['POST', '/compare'], ['GET', '/implementations'], ['GET', `/implementations/${ID}`], ['GET', '/modes/availability'], ['GET', '/system/resources'], ['POST', '/models/test'], ['GET', '/tasks'], ['GET', `/tasks/${ID}`],
     ['POST', `/tasks/${ID}/cancel`], ['GET', '/agents'], ['PATCH', `/agents/${KEY}`], ['GET', '/testing/sessions'], ['GET', '/testing/summary'],
     ['GET', `/testing/sessions/${ID}`], ['POST', '/testing/run'], ['GET', '/approvals'], ['GET', '/recovery-points'],
+    // Chat can only talk: it has no route that writes files or runs commands (tasks stay behind POST /tasks + confirmation).
+    ['GET', '/chat/conversations'], ['POST', '/chat/conversations'], ['DELETE', '/chat/conversations'],
+    ['GET', `/chat/conversations/${ID}`], ['PATCH', `/chat/conversations/${ID}`], ['DELETE', `/chat/conversations/${ID}`],
+    ['POST', `/chat/conversations/${ID}/messages`], ['GET', `/chat/turns/${ID}`], ['POST', `/chat/turns/${ID}/cancel`],
   ];
 }
 
@@ -55,6 +59,8 @@ export function confirmationFor(method: string, path: string, body: unknown): st
   if (m === 'POST' && path === '/tasks') {
     return `Start a "${String(b0.kind ?? '?')}" task: “${String(b0.request ?? '').slice(0, 120)}”? Agents may read, change files and run test commands as allowed by your permission level.`;
   }
+  if (m === 'DELETE' && path === '/chat/conversations') return 'Delete ALL chat conversations? This cannot be undone.';
+  if (m === 'DELETE' && path.startsWith('/chat/conversations/')) return 'Delete this conversation and all its messages? This cannot be undone.';
   if (m === 'POST' && path === '/backups/restore') return 'Restore this backup? Your current knowledge base is replaced (an automatic safety copy is made first).';
   if (m === 'DELETE' && path.startsWith('/backups/')) return 'Permanently delete this backup file?';
   if (m === 'POST' && path === '/testing/run') return 'Run the selected testing agents? This executes the project’s own test commands.';
@@ -78,19 +84,30 @@ export interface RpcDeps {
   confirm: (message: string) => Promise<boolean>;
   saveJson: (suggestedName: string, data: unknown) => Promise<boolean>;
   runCommand: (command: string) => Promise<void>;
+  /** Put text on the clipboard. */
+  copyText?: (text: string) => Promise<void>;
+  /** Show text in a NEW untitled editor. Never touches existing files. */
+  openText?: (text: string, language: string | undefined) => Promise<void>;
 }
 
 export type RpcMessage =
   | ApiMessage
   | { type: 'confirm'; id: number; message: string }
   | { type: 'saveJson'; id: number; suggestedName: string; data: unknown }
-  | { type: 'command'; id: number; command: string };
+  | { type: 'command'; id: number; command: string }
+  | { type: 'copy'; id: number; text: string }
+  | { type: 'openText'; id: number; text: string; language?: string };
 
 export type RpcResponse =
   | { type: 'apiResult'; id: number; ok: boolean; status: number; data?: unknown; error?: string }
   | { type: 'confirmResult'; id: number; ok: boolean }
   | { type: 'saveResult'; id: number; ok: boolean }
-  | { type: 'commandResult'; id: number; ok: boolean; error?: string };
+  | { type: 'commandResult'; id: number; ok: boolean; error?: string }
+  | { type: 'copyResult'; id: number; ok: boolean }
+  | { type: 'openTextResult'; id: number; ok: boolean };
+
+const MAX_TEXT_CHARS = 200_000;
+const LANGUAGE_ID = /^[a-z0-9][a-z0-9+#._-]{0,29}$/i;
 
 export async function handleRpc(msg: RpcMessage, deps: RpcDeps): Promise<RpcResponse | undefined> {
   switch (msg.type) {
@@ -121,6 +138,17 @@ export async function handleRpc(msg: RpcMessage, deps: RpcDeps): Promise<RpcResp
       } catch (err) {
         return { type: 'commandResult', id: msg.id, ok: false, error: (err as Error).message };
       }
+    }
+    case 'copy': {
+      if (typeof msg.text !== 'string' || msg.text.length > MAX_TEXT_CHARS || !deps.copyText) return { type: 'copyResult', id: msg.id, ok: false };
+      await deps.copyText(msg.text);
+      return { type: 'copyResult', id: msg.id, ok: true };
+    }
+    case 'openText': {
+      if (typeof msg.text !== 'string' || msg.text.length > MAX_TEXT_CHARS || !deps.openText) return { type: 'openTextResult', id: msg.id, ok: false };
+      const language = typeof msg.language === 'string' && LANGUAGE_ID.test(msg.language) ? msg.language.toLowerCase() : undefined;
+      await deps.openText(msg.text, language);
+      return { type: 'openTextResult', id: msg.id, ok: true };
     }
     default:
       return undefined;

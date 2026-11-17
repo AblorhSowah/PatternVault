@@ -9,7 +9,10 @@
 2. `code --install-extension patternvault-0.1.0.vsix` (or *Extensions → … → Install from VSIX*).
 3. Run **PatternVault: Set Up Backend**. It creates a private virtual environment in VS Code's global storage and installs the wheel bundled in the VSIX.
    If it cannot find Python 3.11+, set `patternvault.backend.systemPython`.
-4. Open the PatternVault activity-bar view or run **PatternVault: Open Workbench**.
+4. Open the PatternVault activity-bar view (the **Chat** is at the top) or run **PatternVault: Open Workbench**.
+
+**Upgrading:** install the new VSIX, then run **PatternVault: Set Up Backend** again (it rebuilds the private environment from the bundled wheel, so UI and backend match). Data is untouched and
+new tables are migrated automatically at the next backend start.
 
 Data lives in `~/.patternvault` (override with `patternvault.backend.home` / `PATTERNVAULT_HOME`).
 

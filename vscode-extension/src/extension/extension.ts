@@ -4,6 +4,7 @@ import { readSettings } from '../configuration/settings';
 import { BackendManager } from '../services/backendManager';
 import { ProviderKeyStore } from '../services/secrets';
 import { CaptureUi } from '../views/captureUi';
+import { ChatViewProvider } from '../views/chatView';
 import { StatusBar } from '../views/statusBar';
 import { StatusTree } from '../views/statusTree';
 import { WorkbenchPanel } from '../views/workbenchPanel';
@@ -21,6 +22,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
   const statusBar = new StatusBar(backend);
   const tree = new StatusTree(backend);
   const workbench = new WorkbenchPanel(context, backend);
+  const chat = new ChatViewProvider(context, backend);
   const refreshRef: { fn: () => Promise<void> } = { fn: async () => undefined };
   const capture = new CaptureUi(backend, context, () => refreshRef.fn());
 
@@ -49,12 +51,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
     statusBar,
     capture,
     workbench,
+    chat,
+    vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chat, { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.window.registerTreeDataProvider('patternvault.status', tree),
     backend.onDidChangeStatus(() => void refresh()),
     backend.onDidReceiveEvent((e) => {
       if (e.type === 'mode.changed' || e.type === 'config.changed' || e.type.startsWith('task.')) void refresh();
     }),
-    ...registerCommands({ context, backend, output, refresh, capture, workbench }),
+    ...registerCommands({ context, backend, output, refresh, capture, workbench, chat }),
   );
 
   if (readSettings(vscode.workspace.getConfiguration('patternvault')).autoStart) {

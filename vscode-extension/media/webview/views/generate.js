@@ -16,7 +16,7 @@ function fileCard(f) {
     f.issues && f.issues.length ? issueList(f.issues) : null);
 }
 
-function resultPanel(r, label) {
+export function resultPanel(r, label) {
   return h('div', { class: 'card inner result-panel', dataset: { backend: r.backend } },
     h('div', { class: 'row' }, h('strong', {}, label || r.backend), badge(r.model, 'muted'), badge(`${r.attempts} attempt(s)`, 'muted'), badge(`${r.completion_tokens} tokens`, 'muted'),
       h('span', { class: 'muted small' }, `${(r.duration_ms / 1000).toFixed(1)} s`)),
@@ -27,7 +27,7 @@ function resultPanel(r, label) {
     h('h4', {}, `Proposed file changes (${r.files.length})`), ...r.files.map(fileCard));
 }
 
-function contextPanel(ctx) {
+export function contextPanel(ctx) {
   return h('div', { class: 'card inner', id: 'context-report' },
     h('div', { class: 'row wrap' }, h('strong', {}, 'Request understood as:'), badge(ctx.intent, 'info'),
       ctx.project?.framework ? badge(`${ctx.project.framework} ${ctx.project.framework_version || ''}`.trim(), 'muted') : null, ctx.project?.language ? badge(ctx.project.language, 'muted') : null),

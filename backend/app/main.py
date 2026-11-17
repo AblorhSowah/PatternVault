@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
+from app.api.routers import chat as chat_router
 from app.api.routers import config as config_router
 from app.api.routers import engine as engine_router
 from app.api.routers import generation as generation_router
@@ -60,6 +61,7 @@ def create_app(
         learning_router.router,
         knowledge_router.router,
         generation_router.router,
+        chat_router.router,
         engine_router.router,
         patterns_router.router,
     ):

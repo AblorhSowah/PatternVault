@@ -9,6 +9,13 @@ PatternVault 0.1.0 is a working, tested, packaged system. **One acceptance area 
 local model.** No Ollama was installed; I downloaded the official release (SHA-256 verified) but the sandbox denied executing it, and I did not
 work around that. Everything else listed under "Acceptance criteria" was exercised for real. See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
+## Addendum — Chat (added after the first release candidate)
+
+A chat in the VS Code side bar (and as a Workbench section) was added at the user's request: knowledge-grounded answers streamed from the local model with clickable source citations, local
+conversation history, slash commands (`/search /context /generate /task /recreate /status /new /help`), *Ask About Selection*, code-block Copy / Open in editor, and *Settings → Delete all chats…*.
+It is covered by `tests/integration/test_chat.py` (17 tests), `tests/e2e/test_chat_ui.py` (17 tests in real Chromium), `vscode-extension/test/unit/chat.test.ts` and a real-VS-Code host test. Like generation, **it has only
+been exercised against Ollama protocol doubles, not a real model**; with no model it answers from stored patterns and says so. See the *Chat* sections of the README, user guide, security model and limitations.
+
 ## Phase status
 
 | Phase | Status |
@@ -20,25 +27,26 @@ work around that. Everything else listed under "Acceptance criteria" was exercis
 | 5 Multi-agent engine | ✅ |
 | 6 Autonomous execution | ✅ (built together with 5: the orchestrator depends on it) |
 | 7 Hardening & release | ✅ |
+| + Chat | 🟡 complete and tested against protocol doubles; real-model run not performed |
 
 ## Final verification run (`scripts/check.sh --host --package`, exit 0)
 
 | Stage | Result |
 |---|---|
 | ruff lint + format check | clean |
-| mypy (105 source files) | clean |
+| mypy (111 source files) | clean |
 | bandit | clean (0 issues; B101/B404/B603 skipped by documented policy) |
-| pytest — unit, integration, security, regression | **584 passed**, 0 failed — coverage **87.3 %** of `backend/app` |
+| pytest — unit, integration, security, regression | **601 passed**, 0 failed — coverage **87.4 %** of `backend/app` |
 | performance budgets (`-m performance`) | **5 passed** (numbers below) |
-| Playwright E2E (real Chromium + real backend process) | **25 passed** (1 live-Ollama test deselected/skipped) |
+| Playwright E2E (real Chromium + real backend process) | **42 passed** (1 live-Ollama test deselected/skipped); 6 consecutive full runs clean after the harness fix below |
 | tsc / ESLint / esbuild | clean |
-| Vitest (unit + real-backend integration) | **120 passed** |
-| VS Code extension-host tests (real VS Code 1.129.1) | **5 passed** |
-| Wheel + VSIX build | `patternvault-0.1.0-py3-none-any.whl` (≈198 KB), `patternvault-0.1.0.vsix` (≈250 KB, bundles the wheel) |
+| Vitest (unit + real-backend integration) | **141 passed** |
+| VS Code extension-host tests (real VS Code 1.129.1) | **6 passed** |
+| Wheel + VSIX build | `patternvault-0.1.0-py3-none-any.whl` (≈221 KB), `patternvault-0.1.0.vsix` (≈286 KB, bundles the wheel) |
 | **Clean-profile install of the VSIX in real VS Code** | **5 passed**: fresh user-data/extensions dirs → VSIX installed → *Set Up Backend* built a private venv from the bundled wheel (17–42 s) → backend served requests, reported 0.1.0 → capture window produced a pattern |
 
-Total executed: 744 automated checks (+1 skipped live test). Code size: backend 14.9 k lines (105 files), backend tests 7.5 k lines, extension 1.6 k lines TS +
-1.0 k lines webview, extension tests 1.1 k lines.
+Total executed: 800 automated checks (601 + 5 + 42 + 141 + 6 + 5; +1 skipped live test). Code size: backend 16.4 k lines (111 files), Python tests 8.2 k lines, extension 1.8 k lines TS +
+1.3 k lines webview JS/CSS, extension tests 1.6 k lines.
 
 Other checks run during the security review: `pip-audit` — no known vulnerabilities; `npm audit --omit=dev` — 0 (4 *moderate* advisories exist only in dev tooling,
 `@vscode/vsce` transitives, not shipped); Security Testing Agent on this repository — the high/critical findings were all reviewed (SQL built from fixed identifiers, `rmtree` of
@@ -82,7 +90,7 @@ hash-noise made nonsense queries match · stale vectors undetected · non-object
 **`verify` ran after `apply` was skipped** · `learn` skipped on failure so failures were never recorded · double-counted pattern uses · read-only mode made proposals errors ·
 disabled/skipped agents blocked downstream steps · review override not honoured · error banner leaked an internal step key.
 UI: success messages vanished on re-render · mobile overflow · unstyled outside VS Code · `null` rendered as text · views stale without pushed events (now poll).
-Test-harness: pytest collecting a helper, a flaky `b"jwt" not in <random bytes>` assertion, inherited `ELECTRON_RUN_AS_NODE`, and several of my own wrong expectations.
+Test-harness: **the E2E static file server (default listen backlog of 5) reset connections when Chromium fetched the webview's modules in a burst — blank page, `ERR_CONNECTION_RESET`, ~50 % of full runs once the chat added three more modules; reproduced in isolation (70 of 900 connections failed at backlog 5, 0 at 128), fixed in the harness, and failures now leave a screenshot + network log in `test-results/`** · the E2E shim hung instead of reporting 503 when the backend was down · stylesheet typo that dropped input borders · pytest collecting a helper, a flaky `b"jwt" not in <random bytes>` assertion, inherited `ELECTRON_RUN_AS_NODE`, and several of my own wrong expectations.
 
 Each has a named guard in `tests/regression/test_known_bugs.py` or the feature's own tests.
 
@@ -96,7 +104,7 @@ Each has a named guard in `tests/regression/test_known_bugs.py` or the feature's
 * The audit chain is tamper-evident, not tamper-proof; recovery points hold unencrypted raw copies of files being changed.
 * Extraction/categorisation are heuristics; the default embedder is lexical.
 * Dev-tooling `npm audit` shows 4 moderate advisories (`@vscode/vsce` transitives, not shipped).
-* **Nothing has been committed**: all work is in the working tree. `dist/` holds the built wheel and VSIX.
+* The work is committed and pushed to `origin/main`. `dist/` (built wheel and VSIX) is git-ignored; rebuild it with `./scripts/package.sh`.
 
 ## Where to look
 

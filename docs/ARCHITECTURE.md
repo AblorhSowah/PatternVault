@@ -79,6 +79,7 @@ All state is under `PATTERNVAULT_HOME` (default `~/.patternvault`):
 | `app.retrieval`     | embedders, vector store, hybrid ranking, project context analysis                                                           | 3     |
 | `app.generation`    | LLM clients, model discovery, RAG prompt building, output parsing, adaptation                                               | 4     |
 | `app.replay`        | reconstruct stored implementations for the current project                                                                  | 4     |
+| `app.chat`          | local conversations; knowledge-grounded, streamed answers (retrieval → mode policy → Ollama/cloud → redact → store); model-free fallback  | 8     |
 | `app.agents`        | agent interface/registry + the nine development agents                                                                      | 5     |
 | `app.testing`       | runner, report model, the ten testing agents, regression baselines                                                          | 5     |
 | `app.orchestration` | orchestrator, DAG executor, file locks, event bus                                                                           | 5     |
@@ -176,6 +177,10 @@ regardless of mode.
   the *same* failing agents re-run independently → `correction_applied`/`retest_status` written on the original failing results → verified solution stored.
   Exhausted attempts restore the first recovery point.
 * **Testing agents** run in the target project's interpreter; probe harnesses (`testing/harness/`) are trusted scripts shipped in the wheel.
+* **Chat** (`app.chat`, `api/routers/chat.py`, `models/chat.py`, migration 0004): a message starts a background *turn*; tokens are pushed as ephemeral `chat.turn.delta` events (each carries its `offset`, so a
+  client that also polls `GET /chat/turns/{id}` applies every delta exactly once) and the stored answer replaces the live bubble on `chat.turn.done`. Retrieval uses the same hybrid search as generation, the model is
+  chosen by `ModeController` (so offline/learning never reach the cloud), and with no usable model the turn degrades to a model-free answer built from stored patterns. The chat has no write path: tasks stay behind
+  `POST /tasks`. The UI is one webview module shown both in the side bar (`ChatViewProvider`) and as a Workbench section.
 * **Vector store**: SQLite default; `ChromaVectorStore` exists but is untested (optional extra).
 * **Model catalog** ships inside the wheel (`generation/model_catalog.json`); the top-level `local-models/` directory from the plan was not needed.
 * **Distribution**: the VSIX bundles the backend wheel; *Set Up Backend* provisions a managed venv in the extension's global storage (ADR-016).

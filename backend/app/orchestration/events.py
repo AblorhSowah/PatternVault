@@ -22,11 +22,16 @@ class EventBus:
         self._history: deque[dict[str, Any]] = deque(maxlen=history)
         self._seq = 0
 
-    def publish(self, event_type: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    def publish(
+        self, event_type: str, data: dict[str, Any] | None = None, *, ephemeral: bool = False
+    ) -> dict[str, Any]:
+        """Deliver to live subscribers. ``ephemeral`` events (e.g. streamed chat tokens) skip the replay buffer so
+        they cannot push meaningful events out of it."""
         with self._lock:
             self._seq += 1
             event = {"seq": self._seq, "type": event_type, "ts": utcnow().isoformat(), "data": data or {}}
-            self._history.append(event)
+            if not ephemeral:
+                self._history.append(event)
             subs = list(self._subs)
         for loop, queue in subs:
             try:
