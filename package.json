@@ -1,0 +1,17 @@
+{
+  "name": "patternvault-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PatternVault monorepo task runner (Python backend in ./backend, VS Code extension in ./vscode-extension).",
+  "license": "MIT",
+  "scripts": {
+    "setup": "uv sync --python 3.13 && npm --prefix vscode-extension install",
+    "check": "bash scripts/check.sh",
+    "check:full": "bash scripts/check.sh --host",
+    "test:backend": ".venv/bin/python -m pytest tests -q",
+    "test:extension": "npm --prefix vscode-extension test",
+    "lint": ".venv/bin/ruff check backend tests && npm --prefix vscode-extension run lint",
+    "build:extension": "npm --prefix vscode-extension run build",
+    "backend": ".venv/bin/python -m app"
+  }
+}

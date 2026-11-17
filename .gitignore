@@ -1,0 +1,31 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+# Node
+node_modules/
+vscode-extension/out/
+vscode-extension/dist/
+vscode-extension/.vscode-test/
+*.vsix
+# Local data / secrets
+.env
+.env.*
+*.db
+*.db-wal
+*.db-shm
+.patternvault/
+# OS / editor
+.DS_Store
+test-results/
+playwright-report/
+coverage.json
+vscode-extension/backend/*.whl

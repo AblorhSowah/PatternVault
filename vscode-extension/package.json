@@ -1,0 +1,192 @@
+{
+  "name": "patternvault",
+  "displayName": "PatternVault",
+  "description": "Local-first AI development intelligence: learn from AI coding assistants, then reuse verified patterns offline.",
+  "version": "0.1.0",
+  "publisher": "patternvault",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "patternvault.startBackend",
+        "title": "Start Backend",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.stopBackend",
+        "title": "Stop Backend",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.restartBackend",
+        "title": "Restart Backend",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.showLog",
+        "title": "Show Backend Log",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.switchMode",
+        "title": "Switch Operating Mode",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.setPermissionLevel",
+        "title": "Set Agent Permission Level",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.registerWorkspace",
+        "title": "Register Current Workspace as Project",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.setProviderKey",
+        "title": "Store Provider API Key (SecretStorage)",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.clearProviderKey",
+        "title": "Remove Stored Provider API Key",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.refreshStatus",
+        "title": "Refresh Status",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.startCapture",
+        "title": "Start Capture Window",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.endCapture",
+        "title": "End Capture Window and Learn",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.importSessions",
+        "title": "Import AI Assistant Sessions",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.showProviders",
+        "title": "Show Supported AI Assistants",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.analyzeProject",
+        "title": "Analyze Current Project",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.openWorkbench",
+        "title": "Open Workbench",
+        "category": "PatternVault"
+      },
+      {
+        "command": "patternvault.setupBackend",
+        "title": "Set Up Backend (create Python environment)",
+        "category": "PatternVault"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "patternvault",
+          "title": "PatternVault",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "patternvault": [
+        {
+          "id": "patternvault.status",
+          "name": "Status"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PatternVault",
+      "properties": {
+        "patternvault.backend.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start the local PatternVault backend automatically when VS Code starts."
+        },
+        "patternvault.backend.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Python interpreter that has PatternVault installed. Empty = auto-detect (workspace .venv, then python3).",
+          "scope": "machine"
+        },
+        "patternvault.backend.home": {
+          "type": "string",
+          "default": "",
+          "description": "PatternVault data directory. Empty = ~/.patternvault.",
+          "scope": "machine"
+        },
+        "patternvault.backend.startupTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 1000,
+          "description": "How long to wait for the backend to become healthy."
+        },
+        "patternvault.backend.systemPython": {
+          "type": "string",
+          "default": "",
+          "description": "Python 3.11+ interpreter used to create the managed backend environment. Empty = auto-detect (python3.13, python3.12, python3.11, python3).",
+          "scope": "machine"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "test:host": "node out/test/runHostTests.js",
+    "compile:tests": "tsc -p tsconfig.test.json",
+    "package": "vsce package --no-dependencies --skip-license",
+    "test:packaged": "node out/test/packaged/runPackaged.js"
+  },
+  "dependencies": {
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "^1.100.0",
+    "@types/ws": "^8.18.2",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.15.0",
+    "mocha": "^12.0.3",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AblorhSowah/PatternVault"
+  }
+}

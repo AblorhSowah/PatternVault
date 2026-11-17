@@ -1,0 +1,7 @@
+**
+!dist/extension.js
+!media/**
+!backend/*.whl
+!package.json
+!README.md
+!LICENSE

@@ -1,0 +1,12 @@
+{
+  "_comment": "Static guidance only. Availability and exact tags change; verify with `ollama pull <name>`. RAM figures are rough minimums for 4-bit quantised weights plus an 8k context.",
+  "generation": [
+    {"name": "qwen2.5-coder:1.5b", "params": "1.5B", "min_ram_gb": 4, "notes": "Fast, modest quality; good for low-spec machines and smoke tests"},
+    {"name": "qwen2.5-coder:7b", "params": "7B", "min_ram_gb": 8, "notes": "Recommended default for 16 GB machines"},
+    {"name": "qwen2.5-coder:14b", "params": "14B", "min_ram_gb": 16, "notes": "Better multi-file adaptation; wants 24 GB+ for comfort"},
+    {"name": "qwen2.5-coder:32b", "params": "32B", "min_ram_gb": 32, "notes": "Highest local quality of this family; needs a large GPU or 48 GB+ RAM"}
+  ],
+  "embedding": [
+    {"name": "nomic-embed-text", "dim": 768, "min_ram_gb": 2, "notes": "General text embeddings (Ollama /api/embed)"}
+  ]
+}
