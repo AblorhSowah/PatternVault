@@ -15,6 +15,12 @@ After them: **6 of 6 returned both files on the first attempt in 16–31 s, and 
 - Repair request: when no file could be parsed it now shows the literal `<<<FILE …>>>` format. The model had answered with markdown fences three times when only told "use the required format".
 - Chat prompt: the example citation `[#12]` was copied literally by the model (it cited a pattern that does not exist); the example is now a placeholder and the rule says to cite only the patterns given.
 - Tests: `tests/regression/test_real_model_output.py` pins these with answers recorded from the real model; the old parser is confirmed to fail them.
+- Chat identity: asked "who created patternVault" the model answered "created by me, your AI assistant" (the prompt gave it no facts). The prompt now says the assistant is a local language model that did not create PatternVault,
+  carries a short about block (the one author fact is the licence's copyright holder, checked against `LICENSE` by a test) and tells it to say "I do not know" instead of guessing. 4 of 4 real-model runs now decline to invent a creator.
+- Pattern titles: a captured prompt that began with a wrapper line such as `<pasted_content id="5493">` produced titles like "Testing: <pasted_content id="5493">". Lines made only of wrapper tags are now ignored when deriving a title (tags inside a real sentence are kept).
+  Patterns already stored keep their old titles.
+- Chat: a greeting or thank-you ("hi", "thanks!") no longer searches the knowledge base (it matched stray words in unrelated patterns and attached them to the reply); the row under an answer is now labelled "Matched patterns:" (they were retrieved for the question, the model may not have used them).
+- Test harness: the clean-profile install test left one orphaned backend process per run; it now stops its backend when it finishes.
 
 ### Added — Chat
 - A chat in the VS Code side bar (and a Workbench section): knowledge-grounded answers streamed from the local model, clickable source citations, local conversation history,

@@ -337,6 +337,21 @@ def test_one_answer_at_a_time_and_cancel(kb_api):
         finish(api, ask(api, cid, "now it is free again").json()["turn_id"])
 
 
+def test_small_talk_does_not_retrieve_patterns_but_a_real_question_does(kb_api, fake):
+    """ "hi" matched stray words in unrelated patterns and showed them as sources."""
+    from app.chat.service import is_small_talk
+
+    assert all(is_small_talk(t) for t in ["hi", "Hi, how are you?", "thanks!", "ok cool", "hey there"])
+    assert not any(is_small_talk(t) for t in ["who created patternVault", "hi, show me jwt login", "", "?"])
+    api, svc, pid, _ = kb_api
+    configure(svc, fake)
+    cid = new_conv(api, project_id=pid)
+    hi = ask_and_wait(api, cid, "hi")
+    assert hi["status"] == "done" and hi["sources"] == [] and "UNTRUSTED_DATA" not in user_prompt(fake)
+    real = ask_and_wait(api, cid, "How do we do jwt login with password hashing?")
+    assert real["sources"] and "UNTRUSTED_DATA" in user_prompt(fake)
+
+
 def test_answer_cut_off_by_the_output_cap_says_so(kb_api, fake):
     api, svc, pid, _ = kb_api
     configure(svc, fake, local_model={"base_url": fake.url, "model": "qwen2.5-coder:7b", "max_answer_length": 256})

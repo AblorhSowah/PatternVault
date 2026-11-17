@@ -73,7 +73,13 @@ def _h(*parts: str) -> str:
     return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
 
 
+# A line made only of wrapper tags, e.g. ``<pasted_content id="5493">`` that a pasted prompt starts with. Using it as the
+# title gave "Testing: <pasted_content id="5493">". Tags inside a real sentence (``Fix the <div> layout``) are kept.
+_TAG_ONLY_LINE = re.compile(r"(?m)^[ \t]*(?:</?[A-Za-z][\w:.-]*(?:[ \t][^<>\n]{0,200})?>[ \t]*)+$")
+
+
 def _title_from_prompt(prompt: str, category: str) -> str:
+    prompt = _TAG_ONLY_LINE.sub("", prompt)
     first = re.split(r"(?<=[.!?])\s|\n", prompt.strip(), maxsplit=1)[0]
     first = re.sub(r"\s+", " ", first)[:90].rstrip(" .,:;")
     label = CATEGORY_LABELS.get(category, category.title())

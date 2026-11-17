@@ -66,7 +66,7 @@ export async function chatView(el, ctx, { embedded = false } = {}) {
       ? h('div', { class: 'msg-user-text' }, m.content)
       : m.content ? renderMarkdown(m.content, mdHandlers(m.sources || [])) : null;
     const sources = (m.sources || []).length
-      ? h('div', { class: 'msg-sources small' }, h('span', { class: 'muted' }, 'Sources:'),
+      ? h('div', { class: 'msg-sources small' }, h('span', { class: 'muted', title: 'Stored patterns that matched your question and were given to the model as reference. It may not have used them.' }, 'Matched patterns:'),
         ...m.sources.map((s) => h('button', { class: 'cite', type: 'button', title: `${s.title} — ${s.status}, confidence ${Math.round(s.confidence * 100)}%`, onClick: () => showPattern(s.id) }, `#${s.id} ${trunc(s.title, 26)}`)))
       : null;
     const info = [];

@@ -68,6 +68,7 @@ def test_ask_streams_an_answer_with_code_citation_and_sources(wb, backend, world
     expect(answer.locator("pre.code code")).to_have_text(CODE)
     expect(answer.locator("strong")).to_have_text("environment variable")
     expect(answer.locator("button.cite").first).to_have_text(f"#{world['patt']}")  # inline citation is a known source
+    expect(answer.locator(".msg-sources")).to_contain_text("Matched patterns:")
     expect(answer.locator(".msg-sources")).to_contain_text("Authentication")
     expect(wb.page.locator("#chat-conv option:checked")).to_contain_text("How did we implement jwt login")
     expect(wb.page.locator("#chat-send")).to_have_text("Send")

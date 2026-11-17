@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import re
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -25,6 +26,54 @@ from app.models.base import utcnow
 from app.retrieval.search import SearchQuery
 from app.security.secrets import redact
 from app.services.modes import ModeViolation, NoBackendAvailable
+
+# Words that make up a greeting or a thank-you. A message made only of these is small talk: searching the knowledge
+# base for "hi" matches stray words in unrelated patterns and attaches them to the answer as if they were relevant.
+_SMALL_TALK = frozenset(
+    [
+        "hi",
+        "hello",
+        "hey",
+        "hiya",
+        "yo",
+        "sup",
+        "thanks",
+        "thank",
+        "thx",
+        "ty",
+        "you",
+        "ok",
+        "okay",
+        "cool",
+        "nice",
+        "great",
+        "bye",
+        "goodbye",
+        "how",
+        "are",
+        "is",
+        "it",
+        "going",
+        "good",
+        "morning",
+        "afternoon",
+        "evening",
+        "night",
+        "please",
+        "there",
+        "whats",
+        "what's",
+        "up",
+        "doing",
+        "today",
+    ]
+)
+
+
+def is_small_talk(text: str) -> bool:
+    words = re.findall(r"[a-z']+", text.lower())
+    return bool(words) and all(w in _SMALL_TALK for w in words)
+
 
 MAX_MESSAGE_CHARS = 8000
 HISTORY_MESSAGES = 20
@@ -418,7 +467,7 @@ class ChatService:
 
         try:
             refs: list[ChatRef] = []
-            if req.use_knowledge:
+            if req.use_knowledge and not is_small_talk(question):
                 refs = self._retrieve(question, project_id, req.top_k)
             turn.sources = [r.source() for r in refs]
             try:

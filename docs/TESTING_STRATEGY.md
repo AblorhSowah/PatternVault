@@ -50,7 +50,7 @@ executed (non-skipped) relevant agent.
 
 ## Results of the final run (2026-11-17)
 
-`scripts/check.sh --host --package` → exit 0: pytest 614 passed (87.5 % coverage) · performance 5 · Playwright E2E 42 · Vitest 141 · extension host 6 ·
+`scripts/check.sh --host --package` → exit 0: pytest 617 passed (87.5 % coverage) · performance 5 · Playwright E2E 42 · Vitest 141 · extension host 6 ·
 clean-profile VSIX install 5. Linters/type-checkers: ruff, mypy (111 files), bandit, tsc, ESLint — clean. Layout: `tests/{unit,integration,security,regression,performance,e2e}`,
 `vscode-extension/test/{unit,integration,suite,packaged}`.
 

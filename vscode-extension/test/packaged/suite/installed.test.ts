@@ -18,6 +18,12 @@ async function waitFor(cond: () => boolean, ms: number, what: string): Promise<v
 describe('PatternVault installed from the VSIX into a clean VS Code profile', function () {
   let api: Api;
 
+  // test-electron kills the window when the tests end without running deactivate(), which left one orphaned backend
+  // (parent launchd, still holding a port) behind per run. Stop it explicitly.
+  after(async () => {
+    await vscode.commands.executeCommand('patternvault.stopBackend');
+  });
+
   it('is loaded from the installed extensions directory (not from a dev checkout)', async () => {
     const ext = vscode.extensions.getExtension<Api>(EXT_ID);
     assert.ok(ext, 'extension is not installed');

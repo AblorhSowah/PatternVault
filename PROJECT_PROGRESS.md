@@ -54,7 +54,7 @@ exercised against Ollama protocol doubles and then a handful of real-model answe
 | ruff lint + format check | clean |
 | mypy (111 source files) | clean |
 | bandit | clean (0 issues; B101/B404/B603 skipped by documented policy) |
-| pytest — unit, integration, security, regression | **614 passed**, 0 failed — coverage **87.5 %** of `backend/app` |
+| pytest — unit, integration, security, regression | **617 passed**, 0 failed — coverage **87.5 %** of `backend/app` |
 | performance budgets (`-m performance`) | **5 passed** (numbers below) |
 | Playwright E2E (real Chromium + real backend process) | **42 passed** (the 1 live-Ollama test is deselected here; it was run separately against the real model and passed) |
 | tsc / ESLint / esbuild | clean |
@@ -63,7 +63,7 @@ exercised against Ollama protocol doubles and then a handful of real-model answe
 | Wheel + VSIX build | `patternvault-0.1.0-py3-none-any.whl` (≈219 KB), `patternvault-0.1.0.vsix` (≈283 KB, bundles the wheel) |
 | **Clean-profile install of the VSIX in real VS Code** | **5 passed**: fresh user-data/extensions dirs → VSIX installed → *Set Up Backend* built a private venv from the bundled wheel (17–42 s) → backend served requests, reported 0.1.0 → capture window produced a pattern |
 
-Total executed: 813 automated checks (614 + 5 + 42 + 141 + 6 + 5), plus the live test run separately against the real model. Code size: backend 16.4 k lines (111 files), Python tests 8.2 k lines, extension 1.8 k lines TS +
+Total executed: 816 automated checks (617 + 5 + 42 + 141 + 6 + 5), plus the live test run separately against the real model. Code size: backend 16.4 k lines (111 files), Python tests 8.2 k lines, extension 1.8 k lines TS +
 1.3 k lines webview JS/CSS, extension tests 1.6 k lines.
 
 Other checks run during the security review: `pip-audit` — no known vulnerabilities; `npm audit --omit=dev` — 0 (4 *moderate* advisories exist only in dev tooling,

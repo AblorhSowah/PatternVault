@@ -112,3 +112,20 @@ def test_failed_tests_recorded_as_not_passed():
     s.commands = [{"command": "pytest -q", "ok": False, "is_test": True}]
     (c,) = extract_candidates(s)
     assert c.provenance["observed_test_pass"] is False
+
+
+def test_a_pasted_prompt_wrapper_tag_is_never_the_title():
+    """The author's first imported session started with `<pasted_content id="5493">`, giving five patterns titled
+    "Testing: <pasted_content id="5493">"."""
+    from app.extraction.extractor import _title_from_prompt
+
+    wrapped = '<pasted_content id="5493">\nAdd JWT login with password hashing.\n</pasted_content>'
+    assert _title_from_prompt(wrapped, "testing") == "Testing: Add JWT login with password hashing"
+    assert (
+        _title_from_prompt('<pasted_content id="1">\n</pasted_content>', "testing") == "Testing"
+    )  # nothing but wrappers
+    assert (
+        _title_from_prompt("Fix the <div> layout on mobile", "ui-component")
+        == "UI component: Fix the <div> layout on mobile"
+    )
+    assert _title_from_prompt("Add retries.", "error-handling").startswith("Error handling: Add retries")

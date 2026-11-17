@@ -8,9 +8,14 @@ The strings below are copied from those runs (the looping tail is shortened); th
 
 A third finding came from the first real chat: the system prompt said "cite them like [#12]" and the model cited the
 example number (#12) instead of the real pattern (#1).
+
+A fourth: asked "who created patternVault", the model answered "PatternVault was created by me, your AI assistant",
+because the prompt gave it no facts about PatternVault. The prompt now carries a short about block, and the only author fact
+in it (the copyright holder) is checked here against the LICENSE file.
 """
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -51,3 +56,12 @@ def test_the_guard_stops_the_real_looping_answer_but_not_a_good_one():
 def test_the_chat_prompt_has_no_literal_example_citation_for_a_model_to_copy():
     assert not re.search(r"\[#\d+\]", CHAT_SYSTEM_PROMPT)  # a real 7B model copied "[#12]" verbatim
     assert "[#N]" in CHAT_SYSTEM_PROMPT and "Cite only patterns you were given" in CHAT_SYSTEM_PROMPT
+
+
+def test_the_chat_prompt_does_not_let_the_model_claim_to_be_the_creator_and_only_states_licensed_facts():
+    assert "you did not create PatternVault" in CHAT_SYSTEM_PROMPT
+    assert "say you do not know" in CHAT_SYSTEM_PROMPT and "Never guess names" in CHAT_SYSTEM_PROMPT
+    licence = (Path(__file__).resolve().parents[2] / "LICENSE").read_text()
+    holder = re.search(r"Copyright \(c\) \d{4} (\S+)", licence).group(1)
+    assert f"names {holder} as the copyright holder" in CHAT_SYSTEM_PROMPT  # the one author fact comes from the repo
+    assert "Frank" not in CHAT_SYSTEM_PROMPT  # no personal details are baked in without the owner choosing to
