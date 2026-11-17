@@ -79,6 +79,16 @@ def unified_diff(path: str, before: str, after: str) -> str:
     )[:200_000]
 
 
+# Added to the repair request when the answer contained no parsable file. A real 7B model answered with markdown fences
+# three times in a row when only told "use the required format"; showing the literal format is what a small model needs.
+FORMAT_REMINDER = (
+    "\nDo NOT use markdown code fences. Write every file exactly like this, with the real path and the COMPLETE content:\n"
+    '<<<FILE path="app/example.py" action="create">>>\n'
+    "<complete file content>\n"
+    "<<<END FILE>>>"
+)
+
+
 class CodeGenerator:
     def __init__(self, svc: Any) -> None:
         self.svc = svc  # app.services.container.Services (duck-typed to keep this module import-light)
@@ -297,6 +307,7 @@ class CodeGenerator:
         convo = list(messages)
         attempts, ptok, ctok, t0 = 0, 0, 0, time.monotonic()
         parsed, files, warnings = None, [], []
+        cut_off = looped = False
         while True:
             attempts += 1
             svc.events.publish(
@@ -310,6 +321,12 @@ class CodeGenerator:
             problems = [i for f in files for i in f.issues if i["level"] == "error"]
             if not parsed.files:
                 problems = [{"level": "error", "message": "no files were produced in the required <<<FILE>>> format"}]
+            looped = res.done_reason == "runaway"
+            if res.done_reason == "length":
+                # The model hit the output cap. Asking again would burn the same budget for the same result, so
+                # stop and say so instead of looping.
+                cut_off = True
+                break
             if not problems or attempts > req.max_repairs:
                 break
             svc.events.publish(
@@ -322,12 +339,28 @@ class CodeGenerator:
                     "role": "user",
                     "content": "Your answer has problems:\n"
                     + "\n".join(f"- {p.get('path', '')} {p['message']}" for p in problems[:12])
-                    + "\nFix them and return ALL files again in the required format.",
+                    + "\nFix them and return ALL files again in the required format."
+                    + (FORMAT_REMINDER if not parsed.files else ""),
                 },
             ]
         warnings = list(parsed.warnings) if parsed else []
         all_issues = [i for f in files for i in f.issues]
-        if not files:
+        if looped and files:
+            warnings.append(
+                "The model started repeating itself after its files, so generation was stopped early and "
+                "the repeated text was dropped."
+            )
+        if cut_off:
+            limit = (getattr(llm, "options", None) or {}).get("num_predict")
+            message = (
+                "The model's answer was cut off at the output limit"
+                + (f" ({limit} tokens)" if limit else "")
+                + (", so some of it is missing. " if files else " before it finished the first file. ")
+                + "Raise “Max answer length” in Settings → Local model, or ask for fewer files at a time."
+            )
+            warnings.append(message)
+            all_issues.append({"level": "error" if not files else "warning", "message": message})
+        if not files and not cut_off:
             all_issues.append({"level": "error", "message": "model produced no usable files"})
         return BackendResult(
             backend,

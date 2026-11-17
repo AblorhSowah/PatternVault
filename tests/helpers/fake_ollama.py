@@ -28,6 +28,7 @@ class FakeOllama:
         self.requests: list[dict[str, Any]] = []  # every POST body received, in order
         self.fail_status: int | None = None
         self.stream_error: str | None = None
+        self.done_reason = "stop"  # set to "length" to emulate an answer cut off by the output cap
         self.pull_steps = [
             {"status": "pulling manifest"},
             {"status": "downloading", "completed": 50, "total": 100},
@@ -124,7 +125,15 @@ class FakeOllama:
                             return
                         self.wfile.write(
                             (
-                                json.dumps({"done": True, "prompt_eval_count": 11, "eval_count": len(words)}) + "\n"
+                                json.dumps(
+                                    {
+                                        "done": True,
+                                        "done_reason": outer.done_reason,
+                                        "prompt_eval_count": 11,
+                                        "eval_count": len(words),
+                                    }
+                                )
+                                + "\n"
                             ).encode()
                         )
                         return
@@ -134,7 +143,7 @@ class FakeOllama:
                             "model": model,
                             "message": {"role": "assistant", "content": text},
                             "done": True,
-                            "done_reason": "stop",
+                            "done_reason": outer.done_reason,
                             "prompt_eval_count": 11,
                             "eval_count": max(1, len(text.split())),
                         },

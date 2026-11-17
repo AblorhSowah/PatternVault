@@ -45,6 +45,7 @@ Destructive commands, writes outside the project, `.git` writes are **always** b
 
 ## Safety nets
 * Every change is preceded by a **recovery point**; *Agent Control Centre → Recovery points → Restore* undoes it.
+* *Settings → Local model → Resource limits* — CPU threads, GPU layers, context window, **Max answer length** (stops a model that will not finish; default 3072 tokens) and how long the model stays loaded.
 * *Settings → Backup and restore* — create encrypted backups (a lost passphrase cannot be recovered); a safety copy is taken before any restore.
 * *Settings → Audit log* shows what agents did; *Verify audit chain* checks it for tampering.
 

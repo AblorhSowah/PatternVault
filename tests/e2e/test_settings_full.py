@@ -52,7 +52,7 @@ def test_settings_model_selection_and_resource_limits(wb, backend):
         expect(wb.page.locator("#s-model-status")).to_contain_text("ready")
         wb.page.click("#btn-test-model")
         expect(wb.page.locator("#notice")).to_contain_text("Model replied “OK”")
-        for sel, val in (("#s-threads", "2"), ("#s-gpu", "0"), ("#s-ctx", "4096")):
+        for sel, val in (("#s-threads", "2"), ("#s-gpu", "0"), ("#s-ctx", "4096"), ("#s-maxout", "2048")):
             wb.page.fill(sel, val)
             wb.page.locator(sel).blur()
             expect(wb.page.locator("#notice")).to_have_text("Saved")
@@ -60,13 +60,14 @@ def test_settings_model_selection_and_resource_limits(wb, backend):
         wb.page.locator("#s-keepalive").blur()
         expect(wb.page.locator("#notice")).to_have_text("Saved")
         lm = backend.call("GET", "/config").json()["local_model"]
-        assert (lm["model"], lm["num_thread"], lm["num_gpu"], lm["num_ctx"], lm["keep_alive"]) == (
-            "qwen2.5-coder:7b",
-            2,
-            0,
-            4096,
-            "10m",
-        )
+        assert (
+            lm["model"],
+            lm["num_thread"],
+            lm["num_gpu"],
+            lm["num_ctx"],
+            lm["max_answer_length"],
+            lm["keep_alive"],
+        ) == ("qwen2.5-coder:7b", 2, 0, 4096, 2048, "10m")
         wb.page.fill("#s-pull-name", "qwen2.5-coder:1.5b")
         wb.page.click("#btn-pull")
         expect(wb.page.locator("#notice")).to_contain_text("Downloading qwen2.5-coder:1.5b")

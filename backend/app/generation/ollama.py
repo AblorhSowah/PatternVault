@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -56,7 +56,12 @@ class ModelInfo:
 
 def build_options(cfg: Any) -> dict[str, Any]:
     """Map the user's resource configuration to Ollama ``options``."""
-    opts: dict[str, Any] = {"temperature": cfg.temperature, "num_ctx": cfg.num_ctx}
+    opts: dict[str, Any] = {
+        "temperature": cfg.temperature,
+        "num_ctx": cfg.num_ctx,
+        # never let one answer outgrow half the window (the prompt budget is ~60% of it)
+        "num_predict": max(64, min(int(cfg.max_answer_length), int(cfg.num_ctx) // 2)),
+    }
     if cfg.num_thread is not None:
         opts["num_thread"] = cfg.num_thread
     if cfg.num_gpu is not None:
@@ -176,7 +181,7 @@ class OllamaClient:
 
     async def chat_stream(
         self, model: str, messages: list[dict[str, str]], options: dict[str, Any] | None = None
-    ) -> AsyncIterator[dict[str, Any]]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Yield NDJSON chunks: ``{"delta": str}`` per token group, then a final ``{"done": True, ...}``."""
         try:
             async with (
@@ -196,6 +201,7 @@ class OllamaClient:
                             "done": True,
                             "prompt_tokens": chunk.get("prompt_eval_count", 0),
                             "completion_tokens": chunk.get("eval_count", 0),
+                            "done_reason": str(chunk.get("done_reason", "")),
                         }
                     else:
                         yield {"delta": (chunk.get("message") or {}).get("content", "")}

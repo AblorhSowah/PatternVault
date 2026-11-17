@@ -31,15 +31,22 @@ _FILE_BLOCK = re.compile(
     r"<<<FILE\s+path\s*=\s*[\"']?(?P<path>[^\"'>\n]+?)[\"']?(?:\s+action\s*=\s*[\"']?(?P<action>[a-z]+)[\"']?)?\s*>>>\s*\n(?P<body>.*?)\n?<<<END FILE>>>",
     re.S | re.I,
 )
-_EXPLANATION = re.compile(r"<<<EXPLANATION>>>\s*(?P<t>.*?)\s*<<<END EXPLANATION>>>", re.S | re.I)
+# The closing marker is optional: small models often never write it (and may ramble on until the output cap).
+_EXPLANATION = re.compile(r"<<<EXPLANATION>>>\s*(?P<t>.*?)\s*(?:<<<END EXPLANATION>>>|\Z)", re.S | re.I)
+MAX_EXPLANATION_CHARS = 1500
 _DEPS = re.compile(r"<<<DEPENDENCIES>>>\s*(?P<t>.*?)\s*<<<END DEPENDENCIES>>>", re.S | re.I)
 # Markdown fallback: a heading/bold/"File:" line naming a path, followed by a fenced block
 _MD_BLOCK = re.compile(
     r"(?:^|\n)(?:#{1,6}\s*|\*\*|File:\s*|`)(?P<path>[\w./\\-]+\.[A-Za-z0-9]+)(?:\*\*|`)?[ \t]*:?[ \t]*\n+```[\w+-]*[ \t]*\n(?P<body>.*?)\n```",
     re.S,
 )
+# A fenced block whose first line is a comment naming the file: ``# path: a.py`` / ``// file: a.js`` (labelled, lenient)
+# or just ``# app/main.py`` (bare: the comment must hold nothing but a path with an extension). The bare form is what a
+# real 7B model produced when it ignored the requested <<<FILE>>> format.
 _FENCE_PATH = re.compile(
-    r"```[\w+-]*[ \t]*\n(?:#|//|/\*|<!--|--)\s*(?:path|file):\s*(?P<path>[\w./\\-]+)[^\n]*\n(?P<body>.*?)\n```",
+    r"```[\w+-]*[ \t]*\n(?:#|//|/\*|<!--|--)[ \t]*"
+    r"(?:(?:path|file):[ \t]*(?P<path>[\w./\\-]+)[^\n]*|(?P<bare>[\w./\\-]+\.[A-Za-z0-9]+)[ \t]*(?:\*/|-->)?[ \t]*)\n"
+    r"(?P<body>.*?)\n```",
     re.S | re.I,
 )
 _BAD_SEGMENTS = {".git", ".patternvault"}
@@ -74,6 +81,20 @@ def _clean_body(body: str) -> str:
     return text + "\n" if text else ""
 
 
+def _tidy_explanation(raw: str) -> str:
+    """Drop repeated lines (a looping model repeats one sentence) and cap the length."""
+    seen: set[str] = set()
+    kept: list[str] = []
+    for line in raw.strip().splitlines():
+        key = line.strip()
+        if key and key in seen:
+            continue
+        seen.add(key)
+        kept.append(line.rstrip())
+    text = "\n".join(kept).strip()
+    return text if len(text) <= MAX_EXPLANATION_CHARS else text[:MAX_EXPLANATION_CHARS].rstrip() + " …"
+
+
 def parse_model_output(text: str) -> ParsedOutput:
     out = ParsedOutput()
     seen: dict[str, int] = {}
@@ -96,14 +117,14 @@ def parse_model_output(text: str) -> ParsedOutput:
         add(m.group("path"), m.group("body"), (m.group("action") or "").lower())
     if not out.files:  # fall back to markdown conventions that small models often produce
         for m in _FENCE_PATH.finditer(text):
-            add(m.group("path"), m.group("body"), "unknown")
+            add(m.group("path") or m.group("bare"), m.group("body"), "unknown")
         if not out.files:
             for m in _MD_BLOCK.finditer(text):
                 add(m.group("path"), m.group("body"), "unknown")
         if out.files:
             out.warnings.append("model did not use the requested file-block format; parsed markdown instead")
     if (e := _EXPLANATION.search(text)) is not None:
-        out.explanation = e.group("t").strip()
+        out.explanation = _tidy_explanation(e.group("t"))
     else:
         residue = _FILE_BLOCK.sub("", text)
         residue = re.sub(r"<<</?[A-Z ]+[^>]*>>>", "", residue).strip()

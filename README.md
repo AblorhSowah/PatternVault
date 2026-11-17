@@ -206,6 +206,7 @@ Destructive commands, writes outside the project and `.git` writes are **always*
 | Dashboard says *local model server not running* | Start Ollama, confirm with `ollama list`, then **Settings → Local model**. |
 | Chat says *No local model is ready* | It still answers from your stored patterns. For written answers, start Ollama and pick a model in **Settings → Local model**. |
 | Chat does not answer or shows *could not reach the backend* | Run **Show Backend Log** then **Restart Backend**; the chat retries on its own. |
+| An answer or generation says it was *cut off at the output limit* | The model hit **Settings → Local model → Max answer length** (default 3072 tokens, never more than half the context window). Raise it, or ask for fewer files at a time. |
 | Generation says the model is not ready | Pull a model (`ollama pull qwen2.5-coder:7b`), select it in Settings and click **Test**. |
 | Search finds little | Capture or import more sessions; for better semantic recall pull `nomic-embed-text`, select it, and click **Re-index**. |
 | Start over | Stop the backend, remove `~/.patternvault`. (**Back up first**: Settings → Backup and restore.) |

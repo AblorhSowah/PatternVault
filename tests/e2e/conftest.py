@@ -91,6 +91,9 @@ def backend(tmp_path: Path) -> Iterator[Backend]:
     (claude / "projects").mkdir(parents=True)
     b = Backend(tmp_path / "pv-home", claude)
     b.claude_dir = claude  # type: ignore[attr-defined]
+    # Never depend on the host: a real Ollama may be listening on the default port. Tests that need a model point
+    # `local_model.base_url` at their own protocol double.
+    b.call("PATCH", "/config", {"local_model": {"base_url": "http://127.0.0.1:1"}})
     yield b
     b.stop()
 

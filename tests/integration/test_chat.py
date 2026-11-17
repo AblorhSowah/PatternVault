@@ -337,6 +337,22 @@ def test_one_answer_at_a_time_and_cancel(kb_api):
         finish(api, ask(api, cid, "now it is free again").json()["turn_id"])
 
 
+def test_answer_cut_off_by_the_output_cap_says_so(kb_api, fake):
+    api, svc, pid, _ = kb_api
+    configure(svc, fake, local_model={"base_url": fake.url, "model": "qwen2.5-coder:7b", "max_answer_length": 256})
+    fake.done_reason = "length"
+    cid = new_conv(api)
+    t = ask_and_wait(api, cid, "How do we do jwt login?")
+    assert t["status"] == "done" and t["meta"]["truncated"] is True
+    assert fake.chats()[-1]["options"]["num_predict"] == 256
+    assert any("cut off at the output limit (256 tokens)" in n for n in t["meta"]["notes"])
+    stored = api.get(f"{V1}/chat/conversations/{cid}").json()["messages"][-1]
+    assert stored["meta"]["truncated"] is True and stored["content"] == ANSWER  # the partial text is kept
+    fake.done_reason = "stop"
+    t2 = ask_and_wait(api, cid, "ok thanks")
+    assert "truncated" not in t2["meta"] and not any("cut off" in n for n in t2["meta"].get("notes", []))
+
+
 def test_mid_stream_failure_is_reported_and_not_replayed_as_history(kb_api):
     api, svc, pid, _ = kb_api
     with FakeOllama(responder=lambda *a: "partial answer here") as fake:

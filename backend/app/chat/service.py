@@ -389,7 +389,12 @@ class ChatService:
         yield {"model": llm.model}
         res = await llm.chat(messages)
         yield {"delta": res.content}
-        yield {"done": True, "prompt_tokens": res.prompt_tokens, "completion_tokens": res.completion_tokens}
+        yield {
+            "done": True,
+            "prompt_tokens": res.prompt_tokens,
+            "completion_tokens": res.completion_tokens,
+            "done_reason": res.done_reason,
+        }
 
     async def _run(
         self, turn: Turn, req: TurnRequest, question: str, history: list[dict[str, str]], project_id: int | None
@@ -445,6 +450,13 @@ class ChatService:
                     elif chunk.get("done"):
                         turn.meta["prompt_tokens"] = chunk.get("prompt_tokens", 0)
                         turn.meta["completion_tokens"] = chunk.get("completion_tokens", 0)
+                        if chunk.get("done_reason") == "length":
+                            turn.meta["truncated"] = True
+                            limit = build_options(svc.config.config.local_model)["num_predict"]
+                            notes.append(
+                                f"The answer was cut off at the output limit ({limit} tokens). Ask me to continue, "
+                                "or raise “Max answer length” in Settings → Local model."
+                            )
                     elif chunk.get("delta"):
                         pending += chunk["delta"]
                         now = time.monotonic()

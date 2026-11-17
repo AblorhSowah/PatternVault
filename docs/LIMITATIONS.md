@@ -1,15 +1,18 @@
 # Known limitations (kept honest)
 
 **Verification status**
-* **Real-model generation is not verified.** Ollama's documented HTTP API is implemented and tested against *protocol doubles*; no real Ollama/model was
-  run (the sandbox denied executing a downloaded binary). An opt-in live test exists (`PV_OLLAMA_URL=… pytest tests/e2e/test_live_ollama.py -m live`).
-  Local-model *quality* (and small models' ability to follow the `<<<FILE>>>` format) is therefore unmeasured; the parser has a markdown fallback and a repair loop.
+* **Real-model generation was verified only narrowly (2026-11-17).** One model — `qwen2.5-coder:7b` on Ollama 0.40.16, macOS arm64, 16 GB, about 15 tokens/s — was run for real:
+  the opt-in live test passes and 6 further identical requests each returned two files that passed their own tests (16–31 s each). The *first* real run had failed
+  (see the changelog), so the code is now correct for what that model did, which says little about other models. **Not verified with a real model:** other or smaller models
+  (e.g. 1.5B), larger or multi-file tasks, *adapt* mode with retrieved patterns (the live request had no stored knowledge), the `/task` agent loop, languages other than Python.
+  Expect a small model to ignore the requested file format or to ramble; the parser, the answer cap and the early stop exist because the 7B model did both.
 * Continue's session format is implemented from its documentation, not verified against a real installation.
 * ChromaDB as the vector backend is implemented behind the interface but was **not exercised** (optional extra not installed).
 * Tested on macOS/arm64, Python 3.13, VS Code 1.129 only. Windows/Linux, Python 3.11/3.12 are untested (paths and process-group handling are POSIX-first).
 
 **Chat**
-* Like generation, chat answers have only been exercised against Ollama *protocol doubles*; answer quality, citation accuracy and how small models handle the prompt are unmeasured.
+* Chat was tried with a real model (the same 7B): a greeting (4 s), a grounded question about a stored pattern (46 s for a 700-token answer) and a deliberately capped answer. That is a handful of samples, not a quality measurement.
+  The model sometimes writes "Pattern #1" in prose instead of the `[#1]` the UI turns into a link; the source chips under every answer are always taken from the actual retrieval, so they stay correct.
 * Cloud chat needs a per-request key header that the extension UI does not send (the same is true of cloud generation), so it is reachable through the API only.
 * Slash-command results (search cards, task panels) live in the open view, not in the saved history; an answer being written is lost if the backend restarts (what was already saved is kept).
 * Answers render a small Markdown subset (paragraphs, lists, headings, code, bold, citations); tables, images and links are shown as plain text on purpose.

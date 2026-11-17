@@ -84,6 +84,9 @@ class LocalModelConfig(BaseModel):
     embedding_model: str | None = None
     temperature: float = Field(default=0.2, ge=0, le=2)
     num_ctx: int = Field(default=8192, ge=512, le=262144)
+    # Hard cap on the length of ONE answer (Ollama ``num_predict``). Without it a model that fails to stop
+    # (observed with a real 7B model) keeps generating until the request times out. Capped to half the window.
+    max_answer_length: int = Field(default=3072, ge=64, le=65536)
     # Resource controls (passed to Ollama as options). None = let Ollama decide.
     num_thread: int | None = Field(default=None, ge=1, le=512)
     num_gpu: int | None = Field(default=None, ge=0, le=999)

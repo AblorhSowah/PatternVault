@@ -4,6 +4,18 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Fixed — first run against a real local model (qwen2.5-coder:7b, Ollama 0.40.16)
+The first real-model run (the opt-in live test) failed, and probing it found four defects that the Ollama protocol doubles could not show. Over 6 identical generation
+requests, the code before these fixes gave **0 clean results** (4 wrote correct files and then repeated one sentence for ~93 s until the output limit; 2 returned no files).
+After them: **6 of 6 returned both files on the first attempt in 16–31 s, and the code the model wrote passed its own tests every time.**
+- No output cap: a model that does not stop generated until the request timed out. New setting **Max answer length** (`local_model.max_answer_length`, default 3072, sent as `num_predict`, never above half the context window).
+  An answer cut off at the cap is reported (generation: an issue and a warning; chat: a note) and is not retried, because a retry spends the same budget.
+- Looping after the files: generation now streams the answer and stops reading once the explanation is finished, too long, or repeating, so correct files are returned immediately with a warning instead of after the cap.
+- Parser: accepts markdown fences whose first line is a bare path comment (`# app/main.py`), the format the model fell back to; an explanation without its closing marker is kept, de-duplicated and capped at 1 500 characters.
+- Repair request: when no file could be parsed it now shows the literal `<<<FILE …>>>` format. The model had answered with markdown fences three times when only told "use the required format".
+- Chat prompt: the example citation `[#12]` was copied literally by the model (it cited a pattern that does not exist); the example is now a placeholder and the rule says to cite only the patterns given.
+- Tests: `tests/regression/test_real_model_output.py` pins these with answers recorded from the real model; the old parser is confirmed to fail them.
+
 ### Added — Chat
 - A chat in the VS Code side bar (and a Workbench section): knowledge-grounded answers streamed from the local model, clickable source citations, local conversation history,
   slash commands (`/search /context /generate /task /recreate /status /new /help`), code blocks with Copy / Open in editor, and *Ask About Selection* from the editor.

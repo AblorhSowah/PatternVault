@@ -38,13 +38,18 @@ def test_client_discovery_and_status():
 def test_chat_stream_embed_and_resource_options():
     with FakeOllama(responder=lambda m, msgs, o: f"echo {msgs[-1]['content']}") as fake:
         c = OllamaClient(fake.url, keep_alive="10m")
-        opts = build_options(type("C", (), {"temperature": 0.3, "num_ctx": 4096, "num_thread": 4, "num_gpu": 0})())
+        opts = build_options(
+            type(
+                "C", (), {"temperature": 0.3, "num_ctx": 4096, "num_thread": 4, "num_gpu": 0, "max_answer_length": 1000}
+            )()
+        )
         res = run(c.chat("qwen2.5-coder:7b", [{"role": "user", "content": "hi there"}], opts))
         assert res.content == "echo hi there" and res.prompt_tokens == 11 and res.model == "qwen2.5-coder:7b"
         sent = fake.chats()[0]
         assert sent["options"] == {
             "temperature": 0.3,
             "num_ctx": 4096,
+            "num_predict": 1000,
             "num_thread": 4,
             "num_gpu": 0,
         }  # CPU/GPU limits honoured
@@ -66,9 +71,15 @@ def test_pull_progress_and_default_options():
 
         steps = run(collect())
         assert [s["status"] for s in steps][-1] == "success" and steps[1]["completed"] == 50
-        assert build_options(
-            type("C", (), {"temperature": 0.2, "num_ctx": 8192, "num_thread": None, "num_gpu": None})()
-        ) == {"temperature": 0.2, "num_ctx": 8192}
+        defaults = type(
+            "C",
+            (),
+            {"temperature": 0.2, "num_ctx": 8192, "num_thread": None, "num_gpu": None, "max_answer_length": 3072},
+        )
+        assert build_options(defaults()) == {"temperature": 0.2, "num_ctx": 8192, "num_predict": 3072}
+        # the answer cap never exceeds half the window, so a small context cannot be filled by one answer
+        small = type("C", (), {**defaults.__dict__, "num_ctx": 1024, "max_answer_length": 8000})
+        assert build_options(small())["num_predict"] == 512
 
 
 def test_client_errors():
@@ -105,6 +116,7 @@ def test_ollama_llm_requires_a_selected_model():
             "keep_alive": "5m",
             "temperature": 0.2,
             "num_ctx": 1024,
+            "max_answer_length": 512,
             "num_thread": None,
             "num_gpu": None,
         },

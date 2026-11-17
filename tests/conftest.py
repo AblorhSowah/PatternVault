@@ -14,6 +14,7 @@ from app.main import create_app
 from app.services.container import Services
 
 TOKEN = "test-token-0123456789abcdef0123456789abcdef"
+CLOSED_OLLAMA_URL = "http://127.0.0.1:1"  # nothing listens on port 1: "Ollama is not running"
 
 
 @pytest.fixture()
@@ -24,6 +25,9 @@ def home(tmp_path: Path) -> Path:
 @pytest.fixture()
 def services(home: Path) -> Iterator[Services]:
     svc = Services(RuntimeSettings(home=home))
+    # Never depend on the host: a real Ollama may be listening on the default port (it is, on the author's machine).
+    # Tests that need a model point `local_model.base_url` at their own protocol double.
+    svc.config.update({"local_model": {"base_url": CLOSED_OLLAMA_URL}})
     yield svc
     svc.close()
 

@@ -55,6 +55,29 @@ def test_markdown_fallbacks():
     assert [f.path for f in fence.files] == ["src/a.py"]
 
 
+def test_bare_path_comment_is_only_a_label_when_it_holds_nothing_but_a_path():
+    ok = parse_model_output("```python\n# app/main.py\nX = 1\n```\n```js\n// web/app.js\nlet y = 2\n```")
+    assert [(f.path, f.content) for f in ok.files] == [("app/main.py", "X = 1\n"), ("web/app.js", "let y = 2\n")]
+    # a comment that is prose is code, not a file label: nothing is invented
+    prose = parse_model_output("```python\n# see utils.py for the helper\nX = 1\n```")
+    assert prose.files == [] and prose.warnings == ["no files could be parsed from the model output"]
+    assert parse_model_output("```python\n# ../../etc/passwd.txt\nX = 1\n```").files == []  # still path-validated
+
+
+def test_unterminated_explanation_is_kept_deduplicated_and_capped():
+    text = (
+        '<<<FILE path="a.py" action="create">>>\nx = 1\n<<<END FILE>>>\n<<<EXPLANATION>>>\nFirst point.\n'
+        + ("Same sentence again and again.\n" * 30)
+        + "Second point.\n"
+        + "y" * 5000
+    )
+    out = parse_model_output(text)
+    assert [f.path for f in out.files] == ["a.py"]
+    assert out.explanation.startswith("First point.\nSame sentence again and again.\nSecond point.")
+    assert out.explanation.count("Same sentence") == 1 and out.explanation.endswith("…")
+    assert len(out.explanation) <= 1502
+
+
 @pytest.mark.parametrize(
     "bad",
     [

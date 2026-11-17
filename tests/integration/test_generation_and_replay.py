@@ -142,7 +142,13 @@ def test_resource_options_sent_to_model(kb_api):
             }
         )
         api.post(f"{V1}/generate", json={"request": "Add refresh tokens to the JWT login", "project_id": pid})
-        assert fake.chats()[0]["options"] == {"temperature": 0.1, "num_ctx": 4096, "num_thread": 2, "num_gpu": 0}
+        assert fake.chats()[0]["options"] == {
+            "temperature": 0.1,
+            "num_ctx": 4096,
+            "num_predict": 2048,  # default 3072 capped to half of the 4096 window
+            "num_thread": 2,
+            "num_gpu": 0,
+        }
 
 
 def test_repair_loop_feeds_errors_back(kb_api):
@@ -180,6 +186,101 @@ def test_repair_exhaustion_keeps_issues_visible(kb_api):
         assert res["attempts"] == 2 and any(
             i["level"] == "error" and "syntax" in i["message"] for i in res["issues"]
         )  # never hidden
+
+
+def test_output_cap_is_sent_and_configurable(kb_api):
+    api, svc, pid, _ = kb_api
+    with FakeOllama(responder=lambda *a: GOOD_OUTPUT) as fake:
+        setup_local(svc, fake)
+        svc.config.update({"local_model": {"max_answer_length": 700}})
+        api.post(f"{V1}/generate", json={"request": "Add refresh tokens to the JWT login", "project_id": pid})
+        assert fake.chats()[0]["options"]["num_predict"] == 700
+    assert (
+        api.patch(f"{V1}/config", json={"local_model": {"max_answer_length": 10}}).status_code == 422
+    )  # below the floor
+
+
+def test_answer_cut_off_by_the_output_cap_is_reported_not_retried(kb_api):
+    """A real 7B model once ran on for 9 000+ tokens; the cap now stops it and the user is told, with no retry loop."""
+    api, svc, pid, _ = kb_api
+    unfinished = '<<<FILE path="app/new.py" action="create">>>\ndef a():\n    return 1\n\ndef b():\n    return'
+    with FakeOllama(responder=lambda *a: unfinished) as fake:
+        setup_local(svc, fake)
+        fake.done_reason = "length"
+        res = api.post(
+            f"{V1}/generate", json={"request": "Add a helper module please", "project_id": pid, "max_repairs": 2}
+        ).json()["result"]
+        assert len(fake.chats()) == 1 and res["attempts"] == 1  # asking again would burn the same budget
+        assert res["files"] == []
+        cut = [i for i in res["issues"] if "cut off at the output limit" in i["message"]]
+        assert cut and cut[0]["level"] == "error" and "Max answer length" in cut[0]["message"]
+        assert "3072 tokens" in cut[0]["message"]
+        assert not any("no usable files" in i["message"] for i in res["issues"])  # the real cause, not a generic one
+
+
+def test_looping_after_the_files_is_cut_off_early_and_the_files_are_kept(kb_api):
+    """Real 7B behaviour: correct files, then one explanation sentence repeated until the output cap."""
+    api, svc, pid, _ = kb_api
+    looping = (
+        GOOD_OUTPUT.split("<<<EXPLANATION>>>")[0]
+        + "<<<EXPLANATION>>>\n"
+        + ("I did not include any code that is not necessary for the project to be a success.\n" * 400)
+    )
+    with FakeOllama(responder=lambda *a: looping) as fake:
+        setup_local(svc, fake)
+        res = api.post(
+            f"{V1}/generate", json={"request": "Add refresh tokens to the JWT login", "project_id": pid}
+        ).json()["result"]
+    assert len(fake.chats()) == 1 and res["attempts"] == 1  # not retried: the files were fine
+    assert [f["path"] for f in res["files"]] == ["app/auth.py", "tests/test_refresh.py"] and res["issues"] == []
+    assert any("repeating itself" in w for w in res["warnings"])
+    assert res["explanation"].count("not necessary for the project") == 1
+    assert res["completion_tokens"] < 400  # it stopped reading long before the 400 repeated lines
+
+
+def test_a_correct_answer_with_a_closed_explanation_has_no_warnings(kb_api):
+    api, svc, pid, _ = kb_api
+    with FakeOllama(responder=lambda *a: GOOD_OUTPUT) as fake:
+        setup_local(svc, fake)
+        res = api.post(
+            f"{V1}/generate", json={"request": "Add refresh tokens to the JWT login", "project_id": pid}
+        ).json()["result"]
+    assert (
+        res["warnings"] == [] and res["issues"] == [] and res["explanation"].startswith("Kept the access-token helper")
+    )
+
+
+def test_repair_after_unparsable_answer_shows_the_literal_file_format(kb_api):
+    """Real 7B behaviour: told only 'use the required format', it answered with markdown fences three times."""
+    api, svc, pid, _ = kb_api
+    answers = iter(["Here is the code:\n```python\nprint('hi')\n```\n", GOOD_OUTPUT])
+    with FakeOllama(responder=lambda *a: next(answers)) as fake:
+        setup_local(svc, fake)
+        res = api.post(
+            f"{V1}/generate", json={"request": "Add refresh tokens to the JWT login", "project_id": pid}
+        ).json()["result"]
+        reminder = fake.chats()[1]["messages"][-1]["content"]
+    assert res["attempts"] == 2 and len(res["files"]) == 2
+    assert (
+        '<<<FILE path="app/example.py" action="create">>>' in reminder and "Do NOT use markdown code fences" in reminder
+    )
+
+
+def test_cut_off_after_complete_files_keeps_them_and_warns(kb_api):
+    api, svc, pid, _ = kb_api
+    text = GOOD_OUTPUT.split("<<<EXPLANATION>>>")[0] + '<<<FILE path="app/more.py" action="create">>>\ndef c():\n'
+    with FakeOllama(responder=lambda *a: text) as fake:
+        setup_local(svc, fake)
+        fake.done_reason = "length"
+        res = api.post(
+            f"{V1}/generate", json={"request": "Add refresh tokens to the JWT login", "project_id": pid}
+        ).json()["result"]
+        assert [f["path"] for f in res["files"]] == [
+            "app/auth.py",
+            "tests/test_refresh.py",
+        ]  # the unfinished one is dropped
+        cut = [i for i in res["issues"] if "cut off" in i["message"]]
+        assert cut and cut[0]["level"] == "warning" and "some of it is missing" in cut[0]["message"]
 
 
 def test_no_parsable_output_reported(kb_api):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -9,6 +10,30 @@ from typing import Any, Protocol
 import httpx
 
 from app.generation.ollama import ChatResult, OllamaClient, OllamaError, OllamaUnavailable, build_options
+
+END_EXPLANATION = "<<<END EXPLANATION>>>"
+MAX_EXPLANATION_CHARS = 1500
+_CHARS_PER_TOKEN = 3.5
+
+
+def early_stop_reason(text: str) -> str | None:
+    """Decide whether to stop reading a model's answer now. ``"finished"``, ``"runaway"`` or ``None`` (keep going).
+
+    Observed with a real 7B model: it wrote every file correctly and then repeated one explanation sentence until
+    the output cap (95 s of nothing useful). Only text *after* the last file block closed is judged, so code that
+    legitimately repeats lines is never cut short; the hard token cap still bounds everything.
+    """
+    if END_EXPLANATION in text:
+        return "finished"
+    if text.rfind("<<<FILE") > text.rfind("<<<END FILE>>>"):
+        return None  # a file is still being written
+    start = text.rfind("<<<EXPLANATION>>>")
+    if start != -1 and len(text) - start > MAX_EXPLANATION_CHARS:
+        return "runaway"
+    lines = [ln.strip() for ln in text.rsplit("\n", 9)[-8:] if len(ln.strip()) >= 20]
+    if lines and max(lines.count(ln) for ln in set(lines)) >= 4:
+        return "runaway"
+    return None
 
 
 class LLM(Protocol):
@@ -32,7 +57,29 @@ class OllamaLLM:
         return f"ollama:{self.model}"
 
     async def chat(self, messages: list[dict[str, str]]) -> ChatResult:
-        return await self.client.chat(self.model, messages, self.options)
+        """Stream the answer so a model that loops after finishing can be cut off (``done_reason`` ``"runaway"``)."""
+        t0 = time.monotonic()
+        text, ptok, ctok, reason, stopped = "", 0, 0, "", None
+        async with contextlib.aclosing(self.client.chat_stream(self.model, messages, self.options)) as stream:
+            async for chunk in stream:
+                if chunk.get("done"):
+                    ptok, ctok = int(chunk.get("prompt_tokens", 0)), int(chunk.get("completion_tokens", 0))
+                    reason = str(chunk.get("done_reason", ""))
+                elif chunk.get("delta"):
+                    text += chunk["delta"]
+                    stopped = early_stop_reason(text)
+                    if stopped:
+                        break  # closing the stream makes Ollama stop generating
+        if stopped:
+            reason = "runaway" if stopped == "runaway" else "stop"
+        return ChatResult(
+            text,
+            self.model,
+            ptok,
+            ctok or max(1, int(len(text) / _CHARS_PER_TOKEN)),
+            int((time.monotonic() - t0) * 1000),
+            reason,
+        )
 
     @classmethod
     def from_config(cls, cfg: Any, model: str | None = None) -> OllamaLLM:
@@ -77,4 +124,5 @@ class OpenAICompatibleLLM:
             int(usage.get("prompt_tokens", 0)),
             int(usage.get("completion_tokens", 0)),
             int((time.monotonic() - t0) * 1000),
+            str(data["choices"][0].get("finish_reason") or ""),
         )

@@ -64,6 +64,7 @@ export async function settingsView(el, ctx) {
       row('CPU threads', num('s-threads', cfg.local_model.num_thread, (v) => ({ local_model: { num_thread: v } }), { min: 1, max: 512, placeholder: 'auto' }), 'Empty = let Ollama decide.'),
       row('GPU layers', num('s-gpu', cfg.local_model.num_gpu, (v) => ({ local_model: { num_gpu: v } }), { min: 0, max: 999, placeholder: 'auto' }), '0 = CPU only.'),
       row('Context window (tokens)', num('s-ctx', cfg.local_model.num_ctx, (v) => ({ local_model: { num_ctx: v ?? 8192 } }), { min: 512, max: 262144 }), 'Larger = more RAM.'),
+      row('Max answer length (tokens)', num('s-maxout', cfg.local_model.max_answer_length, (v) => ({ local_model: { max_answer_length: v ?? 3072 } }), { min: 64, max: 65536 }), 'Stops a model that will not finish. Never more than half the context window.'),
       row('Keep model loaded', h('input', { type: 'text', id: 's-keepalive', value: cfg.local_model.keep_alive, onChange: (e) => save({ local_model: { keep_alive: e.target.value || '5m' } }) }), 'e.g. 5m, 1h, 0 to unload immediately.')),
     section('Provider integrations',
       ...providerRows,
